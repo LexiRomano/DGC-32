@@ -15,6 +15,8 @@ Internal Registers:
 - PC - Program counter - 32bit
 - IR - Instruction register - 32bit
 - IA - Instruction augment - 8bit
+- IH - Interrupt head - 8bit
+- IT - Interrupt tail - 8bit
 - SP - Stack pointer - 16bit
 - Fl - Flags register - 4bit
 
@@ -179,6 +181,7 @@ Form 7:
 - 0000 - susspend interrupts (form 6)
 - 0001 - resume interrupts (form 6)
 - 0010 - trigger interrupt (form 7)
+- 0011 - finish interrupt (form 6)
 
 ### Instruction Augment
 
