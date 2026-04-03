@@ -21,7 +21,7 @@ The DGC-32 shall have a stack which can be specified by software using a base ad
 
 ### Interrupts
 
-The DGC-32 shall have both hardware and software interrupts wich can be defined by a table specified by a location register.
+The DGC-32 shall have both hardware and software interrupts wich can be defined by a table specified by a location register. Software shall be able to susspend, resume, and trigger interrupts.
 
 ### I/O
 

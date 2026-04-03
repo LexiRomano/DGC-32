@@ -72,16 +72,44 @@ Form 6:
      |           Unused (24b)
      Op code (8b)
 ```
+```
+Form 7:
+  11110000111100001111000011110000
+  \______/\______________________/
+     |           Arg (24b)
+     Op code (8b)
+```
 
 ### Flags register
 ```
   0101
   ||||
-  |||Overflow
-  ||Carry
-  |Negative
-  Zero
+  |||Overflow (V)
+  ||Carry (C)
+  |Negative (N)
+  Zero (Z)
 ```
+
+### Flag conditions
+
+| Code | Function            | Flags          |
+| ---- | ------------------- | -------------- |
+| 0000 | always              | none           |
+| 0001 | equal               | Z==1           |
+| 0010 | not equal           | Z==0           |
+| 0011 | usig higher         | C==1 && Z==0   |
+| 0100 | usig higher or same | C==1           |
+| 0101 | usig lower or same  | C==0 \|\| Z==1 |
+| 0110 | usig lower          | C==0           |
+| 0111 | sig greater         | Z==0 && N==V   |
+| 1000 | sig greater or same | N==V           |
+| 1001 | sig less or same    | Z==1 \|\| N!=V |
+| 1010 | sig less            | N!=V           |
+| 1011 | negative            | N==1           |
+| 1100 | positive or zero    | N==0           |
+| 1101 | signed overflow     | V==1           |
+| 1110 | no signed overflow  | V==0           |
+
 
 ## Instructions
 
@@ -103,6 +131,7 @@ Form 6:
 | Name | Op select code | Form | Arg augment? |
 | ---- | -------------- | ---- | ------------ |
 | NOOP | 0x00           | 6    | N            |
+| INTR | 0xZ1*          | 6/7  | N            |
 | LOAD | 0x02+          | 5    | N            |
 | .    | 0x03+          | 4    | Y            |
 | STOR | 0x04+          | 5    | N            |
@@ -128,14 +157,14 @@ Form 6:
 | .    | 0x99           | 3    | N            |
 | BSRC | 0xA8           | 1    | N            |
 | .    | 0xA9           | 3    | N            |
-| JUMP | 0x0A+          | 4    | N            |
-| .    | 0x0B+          | 6    | Y            |
+| COMP | 0x0A*          | 4    | N            |
+| .    | 0x0B*          | 6    | Y            |
 | BRNC | 0xGC*+         | 4    | N            |
 | .    | 0xGD*+         | 6    | Y            |
 | STCK | 0xHE*          | 4/6  | N            |
 | TERM | 0xFF           | 6    | N            |
 
-***\*BRNCH variants***: where G represents the flags required to trigger the branch
+***\*BRNCH variants***: where G represents the condition required to jump (see flags register section).
 
 ***\*STCK variants***: where H=
 - 0000 - push (form 4)
@@ -146,10 +175,14 @@ Form 6:
 - 0101 - init (form 4)
 - 0110 - return (form 6)
 
+***\*INTR variants***: where Z=
+- 0000 - susspend interrupts (form 6)
+- 0001 - resume interrupts (form 6)
+- 0010 - trigger interrupt (form 7)
 
 ### Instruction Augment
 
-To support several different addressing modes, word sizes, and stack options, the instruction augment is added after a LOAD, STOR, JUMP, or BRNC instruction.
+To support several different addressing modes, word sizes, and stack options, the instruction augment is added after a LOAD, STOR, or BRNC instruction.
 
 ```
   11001100
@@ -179,6 +212,6 @@ To support several different addressing modes, word sizes, and stack options, th
 - 10 - 2 bytes left
 - 11 - 3 bytes left
 
-***Push return to stack***: Whether or not to push the return location to the stack. For JUMP and BRNC only.
+***Push return to stack***: Whether or not to push the return location to the stack. For BRNC only.
 
 ***Relative address***: Whether or not the specified address is relative to the location of the command. Supersedes offset reg select. For all augmented commands.
