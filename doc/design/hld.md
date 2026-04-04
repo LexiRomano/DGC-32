@@ -14,7 +14,7 @@ The DGC-32 will be designed with flexibility and expandability in mind. The arch
 
 The DGC-32 shall have eight general purpose registers (G0 through G7). In addition, there will be several utility registers accessable by software for addressing modes, stack description, and interrupts as described in this document.
 
-### Addressing modes
+### Addressing Modes
 
 The DGC-32 shall have three different addressing modes as follows:
 
@@ -53,10 +53,10 @@ The DGC-32 as described in these documents shall be realized in the form of an e
 
 The DGC-32 shall have two forms of testing; self test and user test.
 
-#### Self test
+#### Self Test
 
 Self test shall allow the emulator developer (Lexington Romanicus II) to verify there has been no regression to the functionality of the emulator. This may take the form of hard-coded tests in the executable (probably easier) or utilize external testing files (better long term).
 
-#### User test
+#### User Test
 
 User test shall allow the program developer (Probably also Lexington Romanicus II) to test out the functionality of their software written for the DGC-32. This may happen with different modes, include stepping through each instruction or adding/enabling special breakpoint instructions.

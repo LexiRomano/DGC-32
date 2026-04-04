@@ -128,43 +128,41 @@ Form 7:
 
 \* Multiple variants, see footnote
 
-\+ Loads instruction augment, see section.
-
-| Name | Op select code | Form | Arg augment? |
-| ---- | -------------- | ---- | ------------ |
-| NOOP | 0x00           | 6    | N            |
-| INTR | 0xZ1*          | 6/7  | N            |
-| LOAD | 0x02+          | 5    | N            |
-| .    | 0x03+          | 4    | Y            |
-| STOR | 0x04+          | 5    | N            |
-| .    | 0x05+          | 4    | Y            |
-| MOVE | 0x06           | 2    | N            |
-| .    | 0x07           | 3    | N            |
-| ADD  | 0x18           | 1    | N            |
-| .    | 0x19           | 3    | N            |
-| SUB  | 0x28           | 1    | N            |
-| .    | 0x29           | 3    | N            |
-| AND  | 0x38           | 1    | N            |
-| .    | 0x39           | 3    | N            |
-| OR   | 0x48           | 1    | N            |
-| .    | 0x49           | 3    | N            |
-| XOR  | 0x58           | 1    | N            |
-| .    | 0x59           | 3    | N            |
-| NOT  | 0x68           | 2    | N            |
-| BSLT | 0x78           | 1    | N            |
-| .    | 0x79           | 3    | N            |
-| BSRT | 0x88           | 1    | N            |
-| .    | 0x89           | 3    | N            |
-| BSLC | 0x98           | 1    | N            |
-| .    | 0x99           | 3    | N            |
-| BSRC | 0xA8           | 1    | N            |
-| .    | 0xA9           | 3    | N            |
-| COMP | 0x0A*          | 4    | N            |
-| .    | 0x0B*          | 6    | Y            |
-| BRNC | 0xGC*+         | 4    | N            |
-| .    | 0xGD*+         | 6    | Y            |
-| STCK | 0xHE*          | 4/6  | N            |
-| TERM | 0xFF           | 6    | N            |
+| Name | Description                                | Op select code | Form | Arg augment? | Instruction augment? |
+| ---- | ------------------------------------------ | -------------- | ---- | ------------ | -------------------- |
+| NOOP | do nothing                                 | 0x00           | 6    |              |                      |
+| INTR | interrupt utilities                        | 0xZ1*          | 6/7  |              |                      |
+| LOAD | load from memory to a register             | 0x02+          | 5    |              | Y                    |
+| .    | .                                          | 0x03+          | 4    | Y            | Y                    |
+| STOR | store from a register to memory            | 0x04+          | 5    |              | Y                    |
+| .    | .                                          | 0x05+          | 4    | Y            | Y                    |
+| MOVE | move from one register to another          | 0x06           | 2    |              |                      |
+| .    | move a value directly int a register       | 0x07           | 3    |              |                      |
+| ADD  | add two registers together                 | 0x18           | 1    |              |                      |
+| .    | add a value to a register                  | 0x19           | 3    |              |                      |
+| SUB  | subtract one register from another         | 0x28           | 1    |              |                      |
+| .    | subtract a value from a register           | 0x29           | 3    |              |                      |
+| AND  | bitwise and two registers together         | 0x38           | 1    |              |                      |
+| .    | bitwise and a register with a value        | 0x39           | 3    |              |                      |
+| OR   | bitwise or two registers together          | 0x48           | 1    |              |                      |
+| .    | bitwise or a register with a value         | 0x49           | 3    |              |                      |
+| XOR  | bitwise xor two registers together         | 0x58           | 1    |              |                      |
+| .    | bitwise xor a register with a value        | 0x59           | 3    |              |                      |
+| NOT  | invert each bit in a register              | 0x68           | 2    |              |                      |
+| BSLT | bitshift a register left and truncate      | 0x78           | 1    |              |                      |
+| .    | .                                          | 0x79           | 3    |              |                      |
+| BSRT | bitshift a register right and truncate     | 0x88           | 1    |              |                      |
+| .    | .                                          | 0x89           | 3    |              |                      |
+| BSLC | bitshift a retister left and carry around  | 0x98           | 1    |              |                      |
+| .    | .                                          | 0x99           | 3    |              |                      |
+| BSRC | bitshift a register right and carry around | 0xA8           | 1    |              |                      |
+| .    | .                                          | 0xA9           | 3    |              |                      |
+| COMP | compare two registers to each other        | 0x0A*          | 4    |              |                      |
+| .    | compare a register to a value              | 0x0B*          | 6    | Y            |                      |
+| BRNC | branch to another location on conditions   | 0xGC*+         | 4    |              | Y                    |
+| .    | .                                          | 0xGD*+         | 6    | Y            | Y                    |
+| STCK | stack utilities                            | 0xHE*          | 4/6  |              |                      |
+| TERM | terminate the execution                    | 0xFF           | 6    |              |                      |
 
 ***\*BRNCH variants***: where G represents the condition required to jump (see flags register section).
 
@@ -183,9 +181,13 @@ Form 7:
 - 0010 - trigger interrupt (form 7)
 - 0011 - finish interrupt (form 6)
 
+### Argument Augment
+
+An argument augment is provided when a command requires more infromation than can be fit in the space remaining in the instruction for an argument. This is 8 bytes and is added after the instruction or the instruction augment if present.
+
 ### Instruction Augment
 
-To support several different addressing modes, word sizes, and stack options, the instruction augment is added after a LOAD, STOR, or BRNC instruction.
+To support several different addressing modes, word sizes, and stack options, the instruction augment is added after a LOAD, STOR, or BRNC instruction. This is 1 byte and is added after the instruction but before the instruction augment if present.
 
 ```
   11001100
@@ -193,7 +195,7 @@ To support several different addressing modes, word sizes, and stack options, th
   || | | Offset reg select
   || | Word size
   || Word offset
-  |Push return to stack
+  |Push return to stack / get absolute address
   Relative address
 ```
 
@@ -216,5 +218,7 @@ To support several different addressing modes, word sizes, and stack options, th
 - 11 - 3 bytes left
 
 ***Push return to stack***: Whether or not to push the return location to the stack. For BRNC only.
+
+***Get absolute address***: Instead of loading the contents of a memory location, this will instead load the address of that memory location. This takes into account the relative address or offset register. For LOAD only.
 
 ***Relative address***: Whether or not the specified address is relative to the location of the command. Supersedes offset reg select. For all augmented commands.

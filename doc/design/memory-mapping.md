@@ -25,7 +25,7 @@ Device registry table format
      Device type (2bytes)
 ```
 
-#### Device types
+#### Device Types
 | ID   | Type        |
 | ---- | ----------- |
 | 0x00 | none        |
@@ -36,8 +36,8 @@ Device registry table format
 | 0x05 | peripheral  |
 | 0xFF | table end   |
 
-### Device data: 0x00006100 : 0x00007FFF
+### Device Data: 0x00006100 : 0x00007FFF
 
 The contents of each device's data field will be defined by its respective specification. See doc/design/devices for included basic devices.
 
-## General use: 0x00008000 : 0xFFFFFFFF
+## General Use: 0x00008000 : 0xFFFFFFFF
