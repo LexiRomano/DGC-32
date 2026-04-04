@@ -1,3 +1,3 @@
 #!/usr/bin/bash
 
-gcc ./src/*.c -Iinclude ./include/*.h -o ./dgc32
+gcc ./src/*.c -Iinclude ./include/*.h -o ./dgc32 -Wall -Werror
