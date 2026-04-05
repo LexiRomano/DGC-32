@@ -32,11 +32,12 @@
 // Op code defs
 #define OP_CODE_NOOP 0x00
 
-#define OP_CODE_INTR_BASE 0x01
-#define OP_CODE_INTR_SUS_VARI  0x00
-#define OP_CODE_INTR_RES_VARI  0x10
-#define OP_CODE_INTR_TRIG_VARI 0x20
-#define OP_CODE_INTR_FIN_VARI  0x30
+#define OP_CODE_INTR_BASE         0x01
+#define OP_CODE_INTR_SUS_VARI     0x00
+#define OP_CODE_INTR_RES_VARI     0x10
+#define OP_CODE_INTR_TRIG_F4_VARI 0x20
+#define OP_CODE_INTR_TRIG_F7_VARI 0x30
+#define OP_CODE_INTR_FIN_VARI     0x40
 
 #define OP_CODE_LOAD_F5 0x02
 #define OP_CODE_LOAD_F4 0x03
@@ -60,8 +61,8 @@
 #define OP_CODE_BSLC_VARI     0x90
 #define OP_CODE_BSRC_VARI     0xA0
 
-#define OP_CODE_COMP_F4 0x0A
-#define OP_CODE_COMP_F6 0x0B
+#define OP_CODE_COMP_F2 0x0A
+#define OP_CODE_COMP_F5 0x0B
 
 #define OP_CODE_BRNC_BASE_F4 0x0C
 #define OP_CODE_BRNC_BASE_F6 0x0D

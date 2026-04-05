@@ -160,12 +160,12 @@ static void run()
                 programCounter+=4;
                 break;
 
-            case OP_CODE_COMP_F4:
+            case OP_CODE_COMP_F2:
                 // TODO
                 programCounter+=4;
                 break;
 
-            case OP_CODE_COMP_F6:
+            case OP_CODE_COMP_F5:
                 // TODO
                 programCounter+=8;
                 break;

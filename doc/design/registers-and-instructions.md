@@ -128,41 +128,41 @@ Form 7:
 
 \* Multiple variants, see footnote
 
-| Name | Description                                | Op select code | Form | Arg augment? | Instruction augment? |
-| ---- | ------------------------------------------ | -------------- | ---- | ------------ | -------------------- |
-| NOOP | do nothing                                 | 0x00           | 6    |              |                      |
-| INTR | interrupt utilities                        | 0xZ1*          | 6/7  |              |                      |
-| LOAD | load from memory to a register             | 0x02+          | 5    |              | Y                    |
-| .    | .                                          | 0x03+          | 4    | Y            | Y                    |
-| STOR | store from a register to memory            | 0x04+          | 5    |              | Y                    |
-| .    | .                                          | 0x05+          | 4    | Y            | Y                    |
-| MOVE | move from one register to another          | 0x06           | 2    |              |                      |
-| .    | move a value directly int a register       | 0x07           | 4    |              |                      |
-| ADD  | add two registers together                 | 0x18           | 1    |              |                      |
-| .    | add a value to a register                  | 0x19           | 3    |              |                      |
-| SUB  | subtract one register from another         | 0x28           | 1    |              |                      |
-| .    | subtract a value from a register           | 0x29           | 3    |              |                      |
-| AND  | bitwise and two registers together         | 0x38           | 1    |              |                      |
-| .    | bitwise and a register with a value        | 0x39           | 3    |              |                      |
-| OR   | bitwise or two registers together          | 0x48           | 1    |              |                      |
-| .    | bitwise or a register with a value         | 0x49           | 3    |              |                      |
-| XOR  | bitwise xor two registers together         | 0x58           | 1    |              |                      |
-| .    | bitwise xor a register with a value        | 0x59           | 3    |              |                      |
-| NOT  | invert each bit in a register              | 0x68           | 2    |              |                      |
-| BSLT | bitshift a register left and truncate      | 0x78           | 1    |              |                      |
-| .    | .                                          | 0x79           | 3    |              |                      |
-| BSRT | bitshift a register right and truncate     | 0x88           | 1    |              |                      |
-| .    | .                                          | 0x89           | 3    |              |                      |
-| BSLC | bitshift a retister left and carry around  | 0x98           | 1    |              |                      |
-| .    | .                                          | 0x99           | 3    |              |                      |
-| BSRC | bitshift a register right and carry around | 0xA8           | 1    |              |                      |
-| .    | .                                          | 0xA9           | 3    |              |                      |
-| COMP | compare two registers to each other        | 0x0A*          | 4    |              |                      |
-| .    | compare a register to a value              | 0x0B*          | 6    | Y            |                      |
-| BRNC | branch to another location on conditions   | 0xGC*+         | 4    |              | Y                    |
-| .    | .                                          | 0xGD*+         | 6    | Y            | Y                    |
-| STCK | stack utilities                            | 0xHE*          | 4/6  |              |                      |
-| TERM | terminate the execution                    | 0xFF           | 6    |              |                      |
+| Name | Description                                | Op select code | Form  | Arg augment? | Instruction augment? |
+| ---- | ------------------------------------------ | -------------- | ----- | ------------ | -------------------- |
+| NOOP | do nothing                                 | 0x00           | 6     |              |                      |
+| INTR | interrupt utilities                        | 0xZ1*          | 4/6/7 |              |                      |
+| LOAD | load from memory to a register             | 0x02+          | 5     |              | Y                    |
+| .    | .                                          | 0x03+          | 4     | Y            | Y                    |
+| STOR | store from a register to memory            | 0x04+          | 5     |              | Y                    |
+| .    | .                                          | 0x05+          | 4     | Y            | Y                    |
+| MOVE | move from one register to another          | 0x06           | 2     |              |                      |
+| .    | move a value directly int a register       | 0x07           | 4     |              |                      |
+| ADD  | add two registers together                 | 0x18           | 1     |              |                      |
+| .    | add a value to a register                  | 0x19           | 3     |              |                      |
+| SUB  | subtract one register from another         | 0x28           | 1     |              |                      |
+| .    | subtract a value from a register           | 0x29           | 3     |              |                      |
+| AND  | bitwise and two registers together         | 0x38           | 1     |              |                      |
+| .    | bitwise and a register with a value        | 0x39           | 3     |              |                      |
+| OR   | bitwise or two registers together          | 0x48           | 1     |              |                      |
+| .    | bitwise or a register with a value         | 0x49           | 3     |              |                      |
+| XOR  | bitwise xor two registers together         | 0x58           | 1     |              |                      |
+| .    | bitwise xor a register with a value        | 0x59           | 3     |              |                      |
+| NOT  | invert each bit in a register              | 0x68           | 2     |              |                      |
+| BSLT | bitshift a register left and truncate      | 0x78           | 1     |              |                      |
+| .    | .                                          | 0x79           | 3     |              |                      |
+| BSRT | bitshift a register right and truncate     | 0x88           | 1     |              |                      |
+| .    | .                                          | 0x89           | 3     |              |                      |
+| BSLC | bitshift a retister left and carry around  | 0x98           | 1     |              |                      |
+| .    | .                                          | 0x99           | 3     |              |                      |
+| BSRC | bitshift a register right and carry around | 0xA8           | 1     |              |                      |
+| .    | .                                          | 0xA9           | 3     |              |                      |
+| COMP | compare two registers to each other        | 0x0A*          | 2     |              |                      |
+| .    | compare a register to a value              | 0x0B*          | 5     | Y            |                      |
+| BRNC | branch to another location on conditions   | 0xGC*+         | 4     |              | Y                    |
+| .    | .                                          | 0xGD*+         | 6     | Y            | Y                    |
+| STCK | stack utilities                            | 0xHE*          | 4/6   |              |                      |
+| TERM | terminate the execution                    | 0xFF           | 6     |              |                      |
 
 ***\*BRNCH variants***: where G represents the condition required to jump (see flags register section).
 
@@ -172,14 +172,15 @@ Form 7:
 - 0010 - pushall (form 6)
 - 0011 - popall (form 6)
 - 0100 - peek (form 4)
-- 0101 - init (form 4)
+- 0101 - init (form 6)
 - 0110 - return (form 6)
 
 ***\*INTR variants***: where Z=
 - 0000 - susspend interrupts (form 6)
 - 0001 - resume interrupts (form 6)
-- 0010 - trigger interrupt (form 7)
-- 0011 - finish interrupt (form 6)
+- 0010 - trigger interrupt (form 4)
+- 0011 - trigger interrupt (form 7)
+- 0100 - finish interrupt (form 6)
 
 ### Argument Augment
 
