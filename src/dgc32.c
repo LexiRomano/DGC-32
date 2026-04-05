@@ -7,43 +7,63 @@ static char    *romLocation = NULL;
 
 
 // Exposed registers
-//static uint32_t generalRegisters[8] = {0};
-//static uint32_t offsetRegisters[3]  = {0};
-//static uint32_t stackBase           = 0;
-//static uint16_t stackSize           = 0;
-//static uint32_t interruptTable      = 0;
+#ifdef SELF_TEST
+static uint32_t generalRegisters[8] = {0};
+static uint32_t offsetRegisters[3]  = {0};
+static uint32_t stackBase           = 0;
+static uint16_t stackSize           = 0;
+static uint32_t interruptTable      = 0;
+#endif //SELF_TEST
 
 // Internal registers
 static uint32_t programCounter      = 0;
 static uint32_t instructionRegister = 0;
-//static uint8_t  instructionAugment  = 0;
-//static uint8_t  interruptHead       = 0;
-//static uint8_t  interruptTail       = 0;
-//static uint16_t stackPointer        = 0;
-//static uint8_t  flagsRegister       = 0;
+
+#ifdef SELF_TEST
+static uint8_t  instructionAugment  = 0;
+static uint8_t  interruptHead       = 0;
+static uint8_t  interruptTail       = 0;
+static uint16_t stackPointer        = 0;
+static uint8_t  flagsRegister       = 0;
+#endif //SELF_TEST
 
 /*******************************************************************************
-* Parse command line arguments
+* Parse command line arguments.
 *******************************************************************************/
 static bool parseArgs(int argc, char* argv[])
 {
-    if (argc >= 2)
+    uint8_t index = 1;
+
+    #ifdef SELF_TEST
+
+    if (index < argc)
     {
-        // Rom
-        romLocation = calloc(strlen(argv[1]) + 1, sizeof(char));
-        snprintf(romLocation, strlen(argv[1]) + 1, "%s", argv[1]);
+        if (false == st_setTestFile(argv[index]))
+        {
+            return false;
+        }
     }
     else
     {
-        romLocation = calloc(strlen(DEFAULT_ROM_LOCATION) + 1, sizeof(char));
-        snprintf(romLocation, strlen(DEFAULT_ROM_LOCATION) + 1, "%s", DEFAULT_ROM_LOCATION);
+        printf("Self test error: test file required (1st argument)\n");
+        return false;
+    }
+
+    index++;
+
+    #endif // SELF_TEST
+
+    if (index < argc)
+    {
+        // Rom
+        romLocation = argv[index];
     }
 
     return true;
 }
 
 /*******************************************************************************
-* Initialize memory, read ROM, .
+* Initialize memory, read ROM.
 *******************************************************************************/
 static bool init()
 {
@@ -64,6 +84,7 @@ static bool init()
     {
         printf("Could not open ROM file at \"%s\"\n", romLocation == NULL ? DEFAULT_ROM_LOCATION : romLocation);
         free(memory);
+        memory = NULL;
         return false;
     }
 
@@ -73,6 +94,7 @@ static bool init()
     {
         printf("Error reading from ROM file\n");
         free(memory);
+        memory = NULL;
         return false;
     }
 
@@ -123,7 +145,7 @@ static void run()
                 programCounter+=4;
                 break;
 
-            case OP_CODE_MOVE_F3:
+            case OP_CODE_MOVE_F4:
                 // TODO
                 programCounter+=4;
                 break;
@@ -163,27 +185,69 @@ static void run()
                 programCounter+=4;
                 break;
 
-            case OP_CODE_TERM:
+            case OP_CODE_TERM_BASE:
                 return;
         }
+
+        #ifdef SELF_TEST
+
+        if (false == st_checkFrame(generalRegisters,
+                                   offsetRegisters,
+                                   stackBase,
+                                   stackSize,
+                                   interruptTable,
+                                   programCounter,
+                                   instructionRegister,
+                                   instructionAugment,
+                                   interruptHead,
+                                   interruptTail,
+                                   stackPointer,
+                                   flagsRegister,
+                                   memory))
+        {
+            return;
+        }
+        #endif // SELF_TEST
     }
+}
+
+static void teardown()
+{
+    #ifdef SELF_TEST
+    st_exit();
+    #endif // SELF_TEST
+
+    if (NULL != memory)
+    {
+        free(memory);
+        memory = NULL;
+    }
+    
 }
 
 int main(int argc, char* argv[])
 {
     printf("DGC-32\n");
 
+    #ifdef SELF_TEST
+    printf("Self test mode\n");
+    #endif // SELF_TEST
+
     if (false == parseArgs(argc, argv))
     {
+        teardown();
         return -1;
     }
 
     if (false == init())
     {
+        teardown();
         return -1;
     }
 
     run();
+
+    teardown();
 
     return 0;
 }

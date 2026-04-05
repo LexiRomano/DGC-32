@@ -137,7 +137,7 @@ Form 7:
 | STOR | store from a register to memory            | 0x04+          | 5    |              | Y                    |
 | .    | .                                          | 0x05+          | 4    | Y            | Y                    |
 | MOVE | move from one register to another          | 0x06           | 2    |              |                      |
-| .    | move a value directly int a register       | 0x07           | 3    |              |                      |
+| .    | move a value directly int a register       | 0x07           | 4    |              |                      |
 | ADD  | add two registers together                 | 0x18           | 1    |              |                      |
 | .    | add a value to a register                  | 0x19           | 3    |              |                      |
 | SUB  | subtract one register from another         | 0x28           | 1    |              |                      |

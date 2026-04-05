@@ -1,0 +1,11 @@
+// Check PC increments on NOOP
+frame: 1
+PC: 0x4
+
+frame: 2
+PC: 0x8
+
+// Check move form 4
+frame: 3
+G0: 0xABCD
+PC: 0xC

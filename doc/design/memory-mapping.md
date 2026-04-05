@@ -1,5 +1,9 @@
 # Memory Mapping
 
+## Endianness
+
+For performance reasons, the endianness of the DGC-32 matches the endianness of the computer hosting the emulator. For an x86 processor, that would be little endian.
+
 ## ROM: 0x00000000 : 0x00003FFF
 
 Boot location at 0x00000000. Not much else to be said :P

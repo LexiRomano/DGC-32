@@ -1,8 +1,15 @@
+#ifndef __DGC32_H__
+#define __DGC32_H__
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdbool.h>
 #include <string.h>
+
+#ifdef SELF_TEST
+#include "selftest.h"
+#endif
 
 #define ROM_SIZE 0x4000
 
@@ -38,7 +45,7 @@
 #define OP_CODE_STOR_F4 0x05
 
 #define OP_CODE_MOVE_F2 0x06
-#define OP_CODE_MOVE_F3 0x07
+#define OP_CODE_MOVE_F4 0x07
 
 #define OP_CODE_MATH_BASE_F1  0x08
 #define OP_CODE_MATH_BASE_F3  0x09
@@ -83,4 +90,7 @@
 #define OP_CODE_STCK_INIT_VARI    0x50
 #define OP_CODE_STCK_RETURN_VARI  0x60
 
-#define OP_CODE_TERM 0xFF
+#define OP_CODE_TERM_BASE 0x0F
+#define OP_CODE_TERM_FULL 0xFF
+
+#endif // __DGC32_H__
