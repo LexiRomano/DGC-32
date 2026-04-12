@@ -36,9 +36,13 @@ Dssembly is the assembly language and assembler corresponding to the DGC-32 proc
 
 ### Binwriter
 
-*WIP, does not exist yet*
-
 Binwriter is a very basic text to binary converter to be able to provide very basic input to the DGC-32. It is highly recommended to use Dssembly (mentionned above).
+
+Use the binwriter as follows:
+```
+bash$ ./binwriter inputFileName outputFileName  # Parses ascii hex from inputFileName into a binary outputFileName
+bash$ ./binwriter                               # Prints usage
+```
 
 ## Resources
 

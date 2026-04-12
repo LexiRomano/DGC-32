@@ -9,18 +9,22 @@ Exposed registers:
 - OC - Offset register C - 32bit
 - SB - Stack base - 32bit
 - SS - Stack size - 16bit
+- SP - Stack pointer - 16bit
 - IL - Interrupt table location - 32bit
+- Fl - Flags register - 8bit
 
 Internal Registers:
 - PC - Program counter - 32bit
 - IR - Instruction register - 32bit
+- AA - Argument augment - 32bit
 - IA - Instruction augment - 8bit
+- IR - Interrupt return address - 32bit
 - IH - Interrupt head - 8bit
 - IT - Interrupt tail - 8bit
-- SP - Stack pointer - 16bit
-- Fl - Flags register - 4bit
+- ST - Status register - 8bit
 
-## Instruction & Flags Register Layout
+
+## Register Layouts
 
 ### Instruction Register
 ```
@@ -82,17 +86,28 @@ Form 7:
      Op code (8b)
 ```
 
-### Flags register
+### Status Register
 ```
-  0101
-  ||||
-  |||Overflow (V)
-  ||Carry (C)
-  |Negative (N)
-  Zero (Z)
+  01010101
+  \____/||
+    |   |Interrupt in progress
+    |   Interrupts susspended
+    Unused
 ```
 
-### Flag conditions
+
+### Flags Register
+```
+  01010101
+  \__/||||
+   |  |||Overflow (V)
+   |  ||Carry (C)
+   |  |Negative (N)
+   |  Zero (Z)
+   Unused
+```
+
+#### Flag Conditions
 
 | Code | Function            | Flags          |
 | ---- | ------------------- | -------------- |
@@ -122,7 +137,9 @@ Form 7:
 - 1010 - OC
 - 1011 - SB
 - 1100 - SS
-- 1101 - IL
+- 1101 - SP
+- 1110 - IL
+- 1111 - FL
 
 ### Op codes
 
@@ -172,8 +189,7 @@ Form 7:
 - 0010 - pushall (form 6)
 - 0011 - popall (form 6)
 - 0100 - peek (form 4)
-- 0101 - init (form 6)
-- 0110 - return (form 6)
+- 0101 - return (form 6)
 
 ***\*INTR variants***: where Z=
 - 0000 - susspend interrupts (form 6)
@@ -181,6 +197,7 @@ Form 7:
 - 0010 - trigger interrupt (form 4)
 - 0011 - trigger interrupt (form 7)
 - 0100 - finish interrupt (form 6)
+- 0101 - get interrupt parameter (form 4)
 
 ### Argument Augment
 

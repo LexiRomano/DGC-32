@@ -25,11 +25,11 @@ The DGC-32 shall have three different addressing modes as follows:
 
 ### Stack
 
-The DGC-32 shall have a stack which can be specified by software using the Stack Base (SB) address register and the Stack Size (SS)register. Software shall be able to init, push, pop, pushall, popall, peek, and return. The hardware will manage these instructions according to the registers noted above.
+The DGC-32 shall have a stack which can be specified by software using the Stack Base (SB) address register, the Stack Size (SS)register, and the Stack Pointer (SP) register. Software shall be able to push, pop, pushall, popall, peek, and return. The hardware will manage these instructions according to the registers noted above.
 
 ### Interrupts
 
-The DGC-32 shall have both hardware and software interrupts. The locations where these interrupts will be handled are identified by a table pointed to by the Interrupt Table Location (IL) register. Software shall be able to susspend, resume, and trigger interrupts.
+The DGC-32 shall have both hardware and software interrupts. The locations where these interrupts will be handled are identified by a table pointed to by the Interrupt Table Location (IL) register. Software shall be able to susspend, resume, trigger, and finish handling interrupts.
 
 ### Input/Output
 
