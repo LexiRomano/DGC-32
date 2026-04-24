@@ -23,6 +23,7 @@ bool st_checkFrame(uint32_t generalRegisters[8],
     uint16_t buf16        = 0;
     uint8_t  buf8         = 0;
     bool     rc           = true;
+    uint32_t line         = 0;
 
     printf("Frame %u\n", ++frame);
 
@@ -35,6 +36,7 @@ bool st_checkFrame(uint32_t generalRegisters[8],
 
     while (fgets(buffer, sizeof(buffer), testFile))
     {
+        line++;
         if (0 != sscanf(buffer, ST_FRAME_STRING, &nextFrameCheck))
         {
             return rc;
@@ -213,6 +215,43 @@ bool st_checkFrame(uint32_t generalRegisters[8],
             {
                 printf("MEM check at 0x%08x failed in frame %u. Expected: 0x%08hhx, got 0x%08hhx\n", buf32, frame, buf8, memory[buf32]);
                 rc = false;
+            }
+        }
+        else
+        {
+            for (uint16_t i = 0; i < sizeof(buffer); i++)
+            {
+                if (buffer[i] == '\0')
+                {
+                    break;
+                }
+                if (buffer[i] == ' ' || buffer[i] == '\n')
+                {
+                    continue;
+                }
+                if (buffer[i] == '/' && buffer[i+1] == '/')
+                {
+                    break;
+                }
+
+                // Clean the trailing \n if applicable
+
+                for (uint16_t j = i; j < sizeof(buffer); j++)
+                {
+                    if (buffer[j] == '\n')
+                    {
+                        buffer[j] = '\0';
+                        break;
+                    }
+
+                    if (buffer[j] == '\0')
+                    {
+                        break;
+                    }
+                }
+
+                printf("Unknown test directive \"%s\" on line %u\n", buffer, line);
+                return false;
             }
         }
     }

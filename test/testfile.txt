@@ -15,3 +15,74 @@ frame: 4
 G0: 0xABCD
 G7: 0xABCD
 PC: 0x10
+
+// Check store form 4, abs with default geometry
+frame: 5
+G7: 0xABCD
+MEM: 0x00008000 0xCD
+MEM: 0x00008001 0xAB
+MEM: 0x00008002 0x00
+MEM: 0x00008003 0x00
+
+// Check mirror load from frame 5
+frame: 6
+G6: 0xABCD
+
+// Check store form 2, abs with default geometry
+frame: 8
+G0: 0xABCD
+G1: 0x8010
+MEM: 0x00008010 0xCD
+MEM: 0x00008011 0xAB
+MEM: 0x00008012 0x00
+MEM: 0x00008013 0x00
+
+// Check mirror load from frame 8
+frame: 9
+G1: 0x8010
+G2: 0xABCD
+
+// Check move to OA
+frame: 10
+OA: 0x8020
+
+// Check store form 4, OA with default geometry
+frame: 12
+G0: 0x12345
+MEM: 0x00008028 0x45
+MEM: 0x00008029 0x23
+MEM: 0x0000802A 0x01
+MEM: 0x0000802B 0x00
+
+// Check mirror load from frame 12
+frame: 13
+G1: 0x12345
+
+// Check store form 4, OA with 1byte word no shift
+frame: 15
+G0: 0xFF
+MEM: 0x00008028 0xFF
+MEM: 0x00008029 0x23
+MEM: 0x0000802A 0x01
+MEM: 0x0000802B 0x00
+
+// Check mirror load from frame 15
+frame: 16
+G0: 0xFF
+
+
+// Check store form 4, OA with 1byte word 1byte shift
+frame: 18
+G1: 0xAA00
+MEM: 0x00008028 0xAA
+MEM: 0x00008029 0x23
+MEM: 0x0000802A 0x01
+MEM: 0x0000802B 0x00
+
+// Check mirror load from frame 18
+frame: 19
+G0: 0xAA00
+
+// Check load absolute address with OA
+frame: 20
+G0: 0x00008028

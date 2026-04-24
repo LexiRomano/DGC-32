@@ -1,4 +1,21 @@
-    NOOP           // frame 1
-    NOOP           // frame 2
-    MOVE G0 0xABCD // frame 3
-    MOVE G7 G0     // frame 4
+    NOOP                        // frame 1
+    NOOP                        // frame 2
+    MOVE          G0 0xABCD     // frame 3
+    MOVE          G7 G0         // frame 4
+    STOR-ABS      G7 0x8000     // frame 5
+    LOAD-ABS      G6 0x8000     // frame 6
+    MOVE          G1 0x8010     // frame 7
+    STOR-ABS      G0 G1         // frame 8
+    LOAD-ABS      G2 G1         // frame 9
+    MOVE          OA 0x8020     // frame 10
+    MOVE          G0 0x12345    // frame 11
+    STOR-OA       G0 8          // frame 12
+    LOAD-OA       G1 8          // frame 13
+
+    MOVE          G0 0xFF       // frame 14
+    STOR-W1S0-OA  G0 8          // frame 15
+    LOAD-W1S0-OA  G0 8          // frame 16
+    MOVE          G1 0xAA00     // frame 17
+    STOR-W1S1-OA  G1 8          // frame 18
+    LOAD-W1S1-OA  G0 8          // frame 19
+    GETABS-OA     G0 8          // frame 20

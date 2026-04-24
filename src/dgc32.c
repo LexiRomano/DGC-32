@@ -4,10 +4,7 @@ static uint8_t *memory      = NULL;
 static char    *romLocation = NULL;
 #define DEFAULT_ROM_LOCATION "./rom.bin"
 
-
-
 // Exposed registers
-
 static uint32_t generalRegisters[8] = {0};
 static uint32_t offsetRegisters[3]  = {0};
 static uint32_t stackBase           = 0;
@@ -20,9 +17,10 @@ static uint8_t  flagsRegister       = 0;
 // Internal registers
 static uint32_t programCounter      = 0;
 static uint32_t instructionRegister = 0;
+static uint8_t  instructionAugment  = 0;
+static uint32_t argumentAugment     = 0;
 
 #ifdef SELF_TEST
-static uint8_t  instructionAugment  = 0;
 static uint8_t  interruptHead       = 0;
 static uint8_t  interruptTail       = 0;
 #endif //SELF_TEST
@@ -213,33 +211,210 @@ static inline void transferRegToReg(uint8_t toRegsel, uint8_t fromRegsel)
     }
 }
 
-static inline void transferMemToReg(uint8_t toRegsel, uint32_t fromAddress)
+static void transferMemToReg(uint8_t toRegsel, uint32_t fromAddress, uint8_t insAug)
 {
+    uint32_t  buf32 = 0;
+    uint16_t  buf16 = 0;
+    uint8_t   buf8  = 0;
+    uint32_t *reg32 = NULL;
+    uint16_t *reg16 = NULL;
+    uint8_t  *reg8  = NULL;
+
     switch (regSize[toRegsel])
     {
         case 4:
-            memcpy(regMap4[toRegsel], &(memory[fromAddress]), sizeof(uint32_t));
-            break;
+            reg32 = regMap4[toRegsel];
+            switch (insAug & INS_AUG_WORD_SIZE_MASK)
+            {
+                case INS_AUG_WORD_SIZE_4:
+                case INS_AUG_WORD_SIZE_INVALID:
+                    memcpy(reg32, &(memory[fromAddress]), sizeof(uint32_t));
+                    break;
+                case INS_AUG_WORD_SIZE_2:
+                    memcpy(&buf16, &(memory[fromAddress]), sizeof(uint16_t));
+                    *reg32 = (uint32_t) buf16;
+                    break;
+                case INS_AUG_WORD_SIZE_1:
+                    memcpy(&buf8, &(memory[fromAddress]), sizeof(uint8_t));
+                    *reg32 = (uint32_t) buf8;
+            }
+
+            switch (insAug & INS_AUG_WORD_OFFSET_MASK)
+            {
+                case INS_AUG_WORD_OFFSET_1:
+                    *reg32 = *reg32 << 8;
+                    break;
+                case INS_AUG_WORD_OFFSET_2:
+                    *reg32 = *reg32 << 16;
+                    break;
+                case INS_AUG_WORD_OFFSET_3:
+                    *reg32 = *reg32 << 24;
+            }
+            
+            return;
         case 2:
-            memcpy(regMap2[toRegsel], &(memory[fromAddress]), sizeof(uint16_t));
-            break;
+            reg16 = regMap2[toRegsel];
+            switch (insAug & INS_AUG_WORD_SIZE_MASK)
+            {
+                case INS_AUG_WORD_SIZE_4:
+                case INS_AUG_WORD_SIZE_INVALID:
+                    memcpy(&buf32, &(memory[fromAddress]), sizeof(uint32_t));
+                    *reg16 = (uint16_t) buf32 & 0xFFFF;
+                    break;
+                case INS_AUG_WORD_SIZE_2:
+                    memcpy(reg16, &(memory[fromAddress]), sizeof(uint16_t));
+                    break;
+                case INS_AUG_WORD_SIZE_1:
+                    memcpy(&buf8, &(memory[fromAddress]), sizeof(uint8_t));
+                    *reg16 = (uint16_t) buf8;
+            }
+
+            switch (insAug & INS_AUG_WORD_OFFSET_MASK)
+            {
+                case INS_AUG_WORD_OFFSET_1:
+                    *reg16 = *reg16 << 8;
+                    break;
+                case INS_AUG_WORD_OFFSET_2:
+                    *reg16 = *reg16 << 16;
+                    break;
+                case INS_AUG_WORD_OFFSET_3:
+                    *reg16 = *reg16 << 24;
+            }
+            
+            return;
         case 1:
-            memcpy(regMap1[toRegsel], &(memory[fromAddress]), sizeof(uint8_t));
+            reg8 = regMap1[toRegsel];
+            switch (insAug & INS_AUG_WORD_SIZE_MASK)
+            {
+                case INS_AUG_WORD_SIZE_4:
+                case INS_AUG_WORD_SIZE_INVALID:
+                    memcpy(&buf32, &(memory[fromAddress]), sizeof(uint32_t));
+                    *reg8 = (uint8_t) buf32 & 0xFF;
+                    break;
+                case INS_AUG_WORD_SIZE_2:
+                    memcpy(&buf16, &(memory[fromAddress]), sizeof(uint16_t));
+                    *reg8 = (uint8_t) buf16 & 0xFF;
+                    break;
+                case INS_AUG_WORD_SIZE_1:
+                    memcpy(reg8, &(memory[fromAddress]), sizeof(uint8_t));
+            }
+
+            switch (insAug & INS_AUG_WORD_OFFSET_MASK)
+            {
+                case INS_AUG_WORD_OFFSET_1:
+                    *reg8 = *reg8 << 8;
+                    break;
+                case INS_AUG_WORD_OFFSET_2:
+                    *reg8 = *reg8 << 16;
+                    break;
+                case INS_AUG_WORD_OFFSET_3:
+                    *reg8 = *reg8 << 24;
+            }
+            
+            return;
     }
 }
 
-static inline void transferRegToMem(uint32_t toAddress, uint8_t fromRegsel)
+static void transferRegToMem(uint32_t toAddress, uint8_t fromRegsel, uint8_t insAug)
 {
+    uint32_t  buf32 = 0;
+    uint16_t  buf16 = 0;
+    uint8_t   buf8  = 0;
+
     switch (regSize[fromRegsel])
     {
         case 4:
-            memcpy(&(memory[toAddress]), regMap4[fromRegsel], sizeof(uint32_t));
+            buf32 = *(regMap4[fromRegsel]);
+
+            switch(insAug & INS_AUG_WORD_OFFSET_MASK)
+            {
+                case INS_AUG_WORD_OFFSET_1:
+                    buf32 = buf32 >> 8;
+                    break;
+                case INS_AUG_WORD_OFFSET_2:
+                    buf32 = buf32 >> 16;
+                    break;
+                case INS_AUG_WORD_OFFSET_3:
+                    buf32 = buf32 >> 24;
+            }
+
+            switch(insAug & INS_AUG_WORD_SIZE_MASK)
+            {
+                case INS_AUG_WORD_SIZE_4:
+                case INS_AUG_WORD_SIZE_INVALID:
+                    memcpy(&(memory[toAddress]), &buf32, sizeof(uint32_t));
+                    break;
+                case INS_AUG_WORD_SIZE_2:
+                    buf16 = (uint16_t) buf32 & 0xFFFF;
+                    memcpy(&(memory[toAddress]), &buf16, sizeof(uint16_t));
+                    break;
+                case INS_AUG_WORD_SIZE_1:
+                    buf8 = (uint8_t) buf32 & 0xFF;
+                    memcpy(&(memory[toAddress]), &buf8, sizeof(uint8_t));
+            }
+            
             return;
         case 2:
-            memcpy(&(memory[toAddress]), regMap2[fromRegsel], sizeof(uint16_t));
+            buf16 = *(regMap2[fromRegsel]);
+
+            switch(insAug & INS_AUG_WORD_OFFSET_MASK)
+            {
+                case INS_AUG_WORD_OFFSET_1:
+                    buf16 = buf16 >> 8;
+                    break;
+                case INS_AUG_WORD_OFFSET_2:
+                    buf16 = buf16 >> 16;
+                    break;
+                case INS_AUG_WORD_OFFSET_3:
+                    buf16 = buf16 >> 24;
+            }
+
+            switch(insAug & INS_AUG_WORD_SIZE_MASK)
+            {
+                case INS_AUG_WORD_SIZE_4:
+                case INS_AUG_WORD_SIZE_INVALID:
+                    buf32 = (uint32_t) buf16;
+                    memcpy(&(memory[toAddress]), &buf32, sizeof(uint32_t));
+                    break;
+                case INS_AUG_WORD_SIZE_2:
+                    memcpy(&(memory[toAddress]), &buf16, sizeof(uint16_t));
+                    break;
+                case INS_AUG_WORD_SIZE_1:
+                    buf8 = (uint8_t) buf16 & 0xFF;
+                    memcpy(&(memory[toAddress]), &buf8, sizeof(uint8_t));
+            }
+            
             return;
         case 1:
-            memcpy(&(memory[toAddress]), regMap1[fromRegsel], sizeof(uint8_t));
+            buf8 = *(regMap1[fromRegsel]);
+
+            switch(insAug & INS_AUG_WORD_OFFSET_MASK)
+            {
+                case INS_AUG_WORD_OFFSET_1:
+                    buf8 = buf8 >> 8;
+                    break;
+                case INS_AUG_WORD_OFFSET_2:
+                    buf8 = buf8 >> 16;
+                    break;
+                case INS_AUG_WORD_OFFSET_3:
+                    buf8 = buf8 >> 24;
+            }
+
+            switch(insAug & INS_AUG_WORD_SIZE_MASK)
+            {
+                case INS_AUG_WORD_SIZE_4:
+                case INS_AUG_WORD_SIZE_INVALID:
+                    buf32 = (uint32_t) buf8;
+                    memcpy(&(memory[toAddress]), &buf32, sizeof(uint32_t));
+                    break;
+                case INS_AUG_WORD_SIZE_2:
+                    buf16 = (uint16_t) buf8;
+                    memcpy(&(memory[toAddress]), &buf16, sizeof(uint16_t));
+                    break;
+                case INS_AUG_WORD_SIZE_1:
+                    memcpy(&(memory[toAddress]), &buf8, sizeof(uint8_t));
+            }
+            
             return;
     }
 }
@@ -257,6 +432,42 @@ static inline void transferVarToReg(uint8_t toRegsel, uint32_t fromVar)
         case 1:
             *regMap1[toRegsel] = (uint8_t) fromVar & 0xFF;
     }
+}
+
+static uint32_t applyOffset(uint8_t insAug, uint32_t baseAddress)
+{
+    if (0 != (insAug & INS_AUG_REL_MASK))
+    {
+        // Relative to PC
+        return baseAddress + programCounter;
+    }
+
+    switch (insAug & INS_AUG_OFFSET_REGSEL_MASK)
+    {
+        case INS_AUG_OFFSET_REGSEL_OA:
+            return baseAddress + offsetRegisters[0];
+        case INS_AUG_OFFSET_REGSEL_OB:
+            return baseAddress + offsetRegisters[1];
+        case INS_AUG_OFFSET_REGSEL_OC:
+            return baseAddress + offsetRegisters[2];
+    }
+
+    return baseAddress;
+}
+
+static uint32_t getValFromRegsel(uint8_t regsel)
+{
+    switch (regSize[regsel])
+    {
+        case 4:
+            return *regMap4[regsel];
+        case 2:
+            return (uint32_t) *regMap2[regsel];
+        case 1:
+            return (uint32_t) *regMap1[regsel];
+    }
+
+    return 0;
 }
 
 static void run()
@@ -277,33 +488,70 @@ static void run()
                 break;
 
             case OP_CODE_LOAD_F2:
-                // TODO
+                memcpy(&instructionAugment, &(memory[programCounter + 4]), sizeof(instructionAugment));
+
+                if (0 != (instructionAugment & INS_AUG_ABS_MASK))
+                {
+                    // Get absolute address
+                    transferVarToReg(REGSEL_1_GET(instructionRegister),
+                                     applyOffset(instructionAugment,
+                                                 getValFromRegsel(REGSEL_2_GET(instructionRegister))));
+                }
+                else
+                {
+                    transferMemToReg(REGSEL_1_GET(instructionRegister),
+                                     applyOffset(instructionAugment,
+                                                 getValFromRegsel(REGSEL_2_GET(instructionRegister))),
+                                     instructionAugment);
+                }
                 programCounter+=5;
                 break;
 
             case OP_CODE_LOAD_F4:
-                // TODO
+                memcpy(&instructionAugment, &(memory[programCounter + 4]), sizeof(instructionAugment));
+                memcpy(&argumentAugment,    &(memory[programCounter + 5]), sizeof(argumentAugment));
+
+                if (0 != (instructionAugment & INS_AUG_ABS_MASK))
+                {
+                    // Get absolute address
+                    transferVarToReg(REGSEL_1_GET(instructionRegister),
+                                     applyOffset(instructionAugment, argumentAugment));
+                }
+                else
+                {
+                    transferMemToReg(REGSEL_1_GET(instructionRegister),
+                                     applyOffset(instructionAugment, argumentAugment),
+                                     instructionAugment);
+                }
                 programCounter+=9;
                 break;
 
             case OP_CODE_STOR_F2:
-                // TODO
+                memcpy(&instructionAugment, &(memory[programCounter + 4]), sizeof(instructionAugment));
+
+                transferRegToMem(applyOffset(instructionAugment,
+                                             getValFromRegsel(REGSEL_2_GET(instructionRegister))),
+                                 REGSEL_1_GET(instructionRegister),
+                                 instructionAugment);
                 programCounter+=5;
                 break;
 
             case OP_CODE_STOR_F4:
-                // TODO
+                memcpy(&instructionAugment, &(memory[programCounter + 4]), sizeof(instructionAugment));
+                memcpy(&argumentAugment,    &(memory[programCounter + 5]), sizeof(argumentAugment));
+
+                transferRegToMem(applyOffset(instructionAugment, argumentAugment),
+                                 REGSEL_1_GET(instructionRegister),
+                                 instructionAugment);
                 programCounter+=9;
                 break;
 
             case OP_CODE_MOVE_F2:
-                // TODO
                 transferRegToReg(REGSEL_1_GET(instructionRegister), REGSEL_2_GET(instructionRegister));
                 programCounter+=4;
                 break;
 
             case OP_CODE_MOVE_F5:
-                // TODO
                 transferVarToReg(REGSEL_1_GET(instructionRegister), ARG_F5_GET(instructionRegister));
                 programCounter+=4;
                 break;
