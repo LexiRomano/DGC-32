@@ -149,12 +149,12 @@ Form 7:
 | ---- | ------------------------------------------ | -------------- | ----- | ------------ | -------------------- |
 | NOOP | do nothing                                 | 0x00           | 6     |              |                      |
 | INTR | interrupt utilities                        | 0xZ1*          | 4/6/7 |              |                      |
-| LOAD | load from memory to a register             | 0x02+          | 5     |              | Y                    |
-| .    | .                                          | 0x03+          | 4     | Y            | Y                    |
-| STOR | store from a register to memory            | 0x04+          | 5     |              | Y                    |
-| .    | .                                          | 0x05+          | 4     | Y            | Y                    |
+| LOAD | load from memory to a register             | 0x02           | 2     |              | Y                    |
+| .    | .                                          | 0x03           | 4     | Y            | Y                    |
+| STOR | store from a register to memory            | 0x04           | 2     |              | Y                    |
+| .    | .                                          | 0x05           | 4     | Y            | Y                    |
 | MOVE | move from one register to another          | 0x06           | 2     |              |                      |
-| .    | move a value directly int a register       | 0x07           | 4     |              |                      |
+| .    | move a value directly int a register       | 0x07           | 5     |              |                      |
 | ADD  | add two registers together                 | 0x18           | 1     |              |                      |
 | .    | add a value to a register                  | 0x19           | 3     |              |                      |
 | SUB  | subtract one register from another         | 0x28           | 1     |              |                      |
@@ -174,10 +174,10 @@ Form 7:
 | .    | .                                          | 0x99           | 3     |              |                      |
 | BSRC | bitshift a register right and carry around | 0xA8           | 1     |              |                      |
 | .    | .                                          | 0xA9           | 3     |              |                      |
-| COMP | compare two registers to each other        | 0x0A*          | 2     |              |                      |
-| .    | compare a register to a value              | 0x0B*          | 5     | Y            |                      |
-| BRNC | branch to another location on conditions   | 0xGC*+         | 4     |              | Y                    |
-| .    | .                                          | 0xGD*+         | 6     | Y            | Y                    |
+| COMP | compare two registers to each other        | 0x0A           | 2     |              |                      |
+| .    | compare a register to a value              | 0x0B           | 4     | Y            |                      |
+| BRNC | branch to another location on conditions   | 0xGC*          | 4     |              | Y                    |
+| .    | .                                          | 0xGD*          | 6     | Y            | Y                    |
 | STCK | stack utilities                            | 0xHE*          | 4/6   |              |                      |
 | TERM | terminate the execution                    | 0xFF           | 6     |              |                      |
 
