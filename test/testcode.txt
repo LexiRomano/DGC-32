@@ -1,12 +1,4 @@
-00 // frame 1
-00
-00
-00
-00 // frame 2
-00
-00
-00
-CD // frame 3
-AB
-00
-07
+    NOOP           // frame 1
+    NOOP           // frame 2
+    MOVE G0 0xABCD // frame 3
+    MOVE G7 G0     // frame 4

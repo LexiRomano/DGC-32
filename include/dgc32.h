@@ -39,14 +39,14 @@
 #define OP_CODE_INTR_TRIG_F7_VARI 0x30
 #define OP_CODE_INTR_FIN_VARI     0x40
 
-#define OP_CODE_LOAD_F5 0x02
+#define OP_CODE_LOAD_F2 0x02
 #define OP_CODE_LOAD_F4 0x03
 
-#define OP_CODE_STOR_F5 0x04
+#define OP_CODE_STOR_F2 0x04
 #define OP_CODE_STOR_F4 0x05
 
 #define OP_CODE_MOVE_F2 0x06
-#define OP_CODE_MOVE_F4 0x07
+#define OP_CODE_MOVE_F5 0x07
 
 #define OP_CODE_MATH_BASE_F1  0x08
 #define OP_CODE_MATH_BASE_F3  0x09
@@ -62,7 +62,7 @@
 #define OP_CODE_BSRC_VARI     0xA0
 
 #define OP_CODE_COMP_F2 0x0A
-#define OP_CODE_COMP_F5 0x0B
+#define OP_CODE_COMP_F4 0x0B
 
 #define OP_CODE_BRNC_BASE_F4 0x0C
 #define OP_CODE_BRNC_BASE_F6 0x0D
@@ -93,5 +93,27 @@
 
 #define OP_CODE_TERM_BASE 0x0F
 #define OP_CODE_TERM_FULL 0xFF
+
+// Regsel
+#define REGSEL_1_OFFSET 20
+#define REGSEL_2_OFFSET 16
+#define REGSEL_3_OFFSET 12
+
+#define REGSEL_1_MASK 0x00F00000
+#define REGSEL_2_MASK 0x000F0000
+#define REGSEL_3_MASK 0x0000F000
+
+#define REGSEL_1_GET(instruction) ((uint8_t) ((instruction & REGSEL_1_MASK) >> REGSEL_1_OFFSET))
+#define REGSEL_2_GET(instruction) ((uint8_t) ((instruction & REGSEL_2_MASK) >> REGSEL_2_OFFSET))
+#define REGSEL_3_GET(instruction) ((uint8_t) ((instruction & REGSEL_3_MASK) >> REGSEL_3_OFFSET))
+
+// Argument
+#define ARG_F3_MASK 0x0000FFFF
+#define ARG_F5_MASK 0x000FFFFF
+#define ARG_F7_MASK 0x00FFFFFF
+
+#define ARG_F3_GET(instruction) (instruction & ARG_F3_MASK)
+#define ARG_F5_GET(instruction) (instruction & ARG_F5_MASK)
+#define ARG_F7_GET(instruction) (instruction & ARG_F7_MASK)
 
 #endif // __DGC32_H__

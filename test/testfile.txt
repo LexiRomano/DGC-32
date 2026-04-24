@@ -5,7 +5,13 @@ PC: 0x4
 frame: 2
 PC: 0x8
 
-// Check move form 4
+// Check move form 2
 frame: 3
 G0: 0xABCD
 PC: 0xC
+
+// Check move form 5
+frame: 4
+G0: 0xABCD
+G7: 0xABCD
+PC: 0x10
