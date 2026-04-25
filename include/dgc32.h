@@ -139,4 +139,11 @@
 #define INS_AUG_WORD_OFFSET_2      0b00100000
 #define INS_AUG_WORD_OFFSET_3      0b00110000
 
+// Flags
+
+#define FLAG_V 0b0001
+#define FLAG_C 0b0010
+#define FLAG_N 0b0100
+#define FLAG_Z 0b1000
+
 #endif // __DGC32_H__

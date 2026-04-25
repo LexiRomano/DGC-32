@@ -434,6 +434,76 @@ static inline void transferVarToReg(uint8_t toRegsel, uint32_t fromVar)
     }
 }
 
+static void doMath(uint8_t opcodeVari, uint8_t destRegsel, uint32_t a, uint32_t b)
+{
+    uint32_t result = 0;
+    uint64_t buf64  = 0;
+    bool     overflow = false;
+    bool     carry    = false;
+
+    switch (opcodeVari)
+    {
+        case OP_CODE_SUB_VARI:
+            b = (~b) +1;
+        case OP_CODE_ADD_VARI:
+            result = a + b;
+            carry  = result < a;
+            overflow = carry ^
+                       (0 !=(((a & 0x7FFFFFFF) + (b & 0x7FFFFFFF)) & 0x80000000));
+            break;
+
+        case OP_CODE_AND_VARI:
+            result = a & b;
+            break;
+
+        case OP_CODE_OR_VARI:
+            result = a | b;
+            break;
+
+        case OP_CODE_XOR_VARI:
+            result = a ^ b;
+            break;
+
+        case OP_CODE_NOT_VARI:
+            result = ~a;
+            break;
+
+        case OP_CODE_BSLT_VARI:
+            buf64 = (uint64_t) a;
+            buf64 = buf64 << (b % 32);
+            result = (uint32_t) buf64 & 0xFFFFFFFF;
+            carry = (buf64 & 0xFFFFFFFF00000000) != 0;
+            break;
+
+        case OP_CODE_BSRT_VARI:
+            buf64 = ((uint64_t) a) << 32;
+            buf64 = buf64 >> (b % 32);
+            result = (uint32_t) ((buf64 & 0xFFFFFFFF00000000) >> 32);
+            carry = (buf64 & 0xFFFFFFFF) != 0;
+            break;
+
+        case OP_CODE_BSLC_VARI:
+            buf64 = (uint64_t) a;
+            buf64 = buf64 << (b % 32);
+            result = (uint32_t) (buf64 & 0xFFFFFFFF) +
+                                ((buf64 & 0xFFFFFFFF00000000) >> 32);
+            carry = (buf64 & 0xFFFFFFFF00000000) != 0;
+            break;
+        case OP_CODE_BSRC_VARI:
+            buf64 = ((uint64_t) a) << 32;
+            buf64 = buf64 >> (b % 32);
+            result = (uint32_t) (buf64 & 0xFFFFFFFF) +
+                                ((buf64 & 0xFFFFFFFF00000000) >> 32);
+            carry = (buf64 & 0xFFFFFFFF) != 0;
+    }
+
+    transferVarToReg(destRegsel, result);
+    flagsRegister = ((result == 0          ? FLAG_Z : 0) +
+                     (result >  0x7FFFFFFF ? FLAG_N : 0) +
+                     (carry                ? FLAG_C : 0) +
+                     (overflow             ? FLAG_V : 0));
+}
+
 static uint32_t applyOffset(uint8_t insAug, uint32_t baseAddress)
 {
     if (0 != (insAug & INS_AUG_REL_MASK))
@@ -557,12 +627,18 @@ static void run()
                 break;
 
             case OP_CODE_MATH_BASE_F1:
-                // TODO
+                doMath(OP_CODE_GET_VARI(instructionRegister),
+                       REGSEL_1_GET(instructionRegister),
+                       getValFromRegsel(REGSEL_2_GET(instructionRegister)),
+                       getValFromRegsel(REGSEL_3_GET(instructionRegister)));
                 programCounter+=4;
                 break;
 
             case OP_CODE_MATH_BASE_F3:
-                // TODO
+                doMath(OP_CODE_GET_VARI(instructionRegister),
+                       REGSEL_1_GET(instructionRegister),
+                       getValFromRegsel(REGSEL_2_GET(instructionRegister)),
+                       ARG_F3_GET(instructionRegister));
                 programCounter+=4;
                 break;
 

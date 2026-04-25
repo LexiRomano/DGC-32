@@ -3,6 +3,7 @@
 static FILE    *testFile       = NULL;
 static uint32_t nextFrameCheck = 0;
 static uint32_t frame          = 0;
+static uint32_t line           = 0;
 
 bool st_checkFrame(uint32_t generalRegisters[8],
                    uint32_t offsetRegisters[3],
@@ -23,16 +24,14 @@ bool st_checkFrame(uint32_t generalRegisters[8],
     uint16_t buf16        = 0;
     uint8_t  buf8         = 0;
     bool     rc           = true;
-    uint32_t line         = 0;
+    
 
-    printf("Frame %u\n", ++frame);
+    ++frame;
 
     if (frame != nextFrameCheck)
     {
         return true;
     }
-
-    printf("Evaluating...\n");
 
     while (fgets(buffer, sizeof(buffer), testFile))
     {
@@ -141,7 +140,7 @@ bool st_checkFrame(uint32_t generalRegisters[8],
         {
             if (stackSize != buf16)
             {
-                printf("SS check failed in frame %u. Expected: 0x%08hx, got 0x%08hx\n", frame, buf16, stackSize);
+                printf("SS check failed in frame %u. Expected: 0x%04hx, got 0x%04hx\n", frame, buf16, stackSize);
                 rc = false;
             }
         }
@@ -173,7 +172,7 @@ bool st_checkFrame(uint32_t generalRegisters[8],
         {
             if (instructionAugment != buf8)
             {
-                printf("IA check failed in frame %u. Expected: 0x%08hhx, got 0x%08hhx\n", frame, buf8, instructionAugment);
+                printf("IA check failed in frame %u. Expected: 0x%02hhx, got 0x%02hhx\n", frame, buf8, instructionAugment);
                 rc = false;
             }
         }
@@ -181,7 +180,7 @@ bool st_checkFrame(uint32_t generalRegisters[8],
         {
             if (interruptHead != buf8)
             {
-                printf("IH check failed in frame %u. Expected: 0x%08hhx, got 0x%08hhx\n", frame, buf8, interruptHead);
+                printf("IH check failed in frame %u. Expected: 0x%02hhx, got 0x%02hhx\n", frame, buf8, interruptHead);
                 rc = false;
             }
         }
@@ -189,7 +188,7 @@ bool st_checkFrame(uint32_t generalRegisters[8],
         {
             if (interruptTail != buf8)
             {
-                printf("IT check failed in frame %u. Expected: 0x%08hhx, got 0x%08hhx\n", frame, buf8, interruptTail);
+                printf("IT check failed in frame %u. Expected: 0x%02hhx, got 0x%02hhx\n", frame, buf8, interruptTail);
                 rc = false;
             }
         }
@@ -197,7 +196,7 @@ bool st_checkFrame(uint32_t generalRegisters[8],
         {
             if (stackPointer != buf16)
             {
-                printf("SP check failed in frame %u. Expected: 0x%08hx, got 0x%08hx\n", frame, buf16, stackSize);
+                printf("SP check failed in frame %u. Expected: 0x%04hx, got 0x%04hx\n", frame, buf16, stackSize);
                 rc = false;
             }
         }
@@ -205,7 +204,7 @@ bool st_checkFrame(uint32_t generalRegisters[8],
         {
             if (flagsRegister != buf8)
             {
-                printf("FL check failed in frame %u. Expected: 0x%08hhx, got 0x%08hhx\n", frame, buf8, flagsRegister);
+                printf("FL check failed in frame %u. Expected: 0b%04hhb, got 0b%04hhb\n", frame, buf8, flagsRegister);
                 rc = false;
             }
         }
@@ -213,7 +212,7 @@ bool st_checkFrame(uint32_t generalRegisters[8],
         {
             if (memory[buf32] != buf8)
             {
-                printf("MEM check at 0x%08x failed in frame %u. Expected: 0x%08hhx, got 0x%08hhx\n", buf32, frame, buf8, memory[buf32]);
+                printf("MEM check at 0x%08x failed in frame %u. Expected: 0x%02hhx, got 0x%02hhx\n", buf32, frame, buf8, memory[buf32]);
                 rc = false;
             }
         }
@@ -256,6 +255,8 @@ bool st_checkFrame(uint32_t generalRegisters[8],
         }
     }
 
+    printf("Success!\n");
+
     return false;
 }
 
@@ -273,6 +274,7 @@ bool st_setTestFile(char *arg)
 
     while (fgets(inputBuffer, sizeof(inputBuffer), testFile))
     {
+        line++;
         if (0 != sscanf(inputBuffer, ST_FRAME_STRING, &nextFrameCheck))
         {
             return true;

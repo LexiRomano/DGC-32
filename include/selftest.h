@@ -24,7 +24,7 @@
 #define ST_IH_STRING    "IH: 0x%hhx"
 #define ST_IT_STRING    "IT: 0x%hhx"
 #define ST_SP_STRING    "SP: 0x%hx"
-#define ST_FL_STRING    "FL: 0x%hhx"
+#define ST_FL_STRING    "FL: 0b%hhb"
 #define ST_MEM_STRING   "MEM: 0x%x 0x%hhx"
 
 bool st_checkFrame(uint32_t generalRegisters[8],

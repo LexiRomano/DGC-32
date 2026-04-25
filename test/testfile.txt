@@ -86,3 +86,60 @@ G0: 0xAA00
 // Check load absolute address with OA
 frame: 20
 G0: 0x00008028
+
+// Check form 1 addition
+frame: 23
+G0: 0x2
+G1: 0x2
+G2: 0x4
+FL: 0b0000
+
+// Check form 3 BSLT, no carry
+frame: 26
+G0: 0xFFFF0000
+FL: 0b0100
+
+// Check form 1 OR
+frame: 27
+G0: 0xFFFFFFFF
+FL: 0b0100
+
+// Check form 3 BSLT, with carry
+frame: 28
+G0: 0xFFFFFFFE
+FL: 0b0110
+
+// Check form 3 BSLC, with carry
+frame: 29
+G0: 0xFFFFFFFD
+FL: 0b0110
+
+// Check form 3 BSRC, with carry
+frame: 30
+G0: 0xFFFFFFFE
+FL: 0b0110
+
+// Check form 3 BSRC, no carry
+frame: 31
+G0: 0x7FFFFFFF
+FL: 0b0000
+
+// Check form 3 BSRT, with carry
+frame: 32
+G0: 0x3FFFFFFF
+FL: 0b0010
+
+// Check form 3 SUB, 2 - 1 = 1
+frame: 34
+G0: 0x1
+FL: 0b0010
+
+// Check form 3 SUB, 1 - 1 = 0
+frame: 35
+G1: 0x0
+FL: 0b1010
+
+// Check form 3 SUB 1 - 2 = -1 (0xFFFFFFFF)
+frame: 36
+G1: 0xFFFFFFFF
+FL: 0b0100
