@@ -4,6 +4,35 @@ static FILE    *testFile       = NULL;
 static uint32_t nextFrameCheck = 0;
 static uint32_t frame          = 0;
 static uint32_t line           = 0;
+static uint64_t startTime      = 0;
+static uint64_t interruptTime  = 0;
+
+void st_defineStartTime()
+{
+    struct timespec t = {0};
+
+    clock_gettime(CLOCK_REALTIME, &t);
+
+    startTime = (t.tv_sec * SEC_TO_NSEC) + t.tv_nsec;
+}
+
+void st_startInterruptTime()
+{
+    struct timespec t = {0};
+
+    clock_gettime(CLOCK_REALTIME, &t);
+
+    interruptTime = (t.tv_sec * SEC_TO_NSEC) + t.tv_nsec;
+}
+
+void st_endInterruptTime()
+{
+    struct timespec t = {0};
+
+    clock_gettime(CLOCK_REALTIME, &t);
+
+    startTime += (t.tv_sec * SEC_TO_NSEC) + t.tv_nsec - interruptTime;
+}
 
 bool st_checkFrame(uint32_t generalRegisters[8],
                    uint32_t offsetRegisters[3],
@@ -19,12 +48,13 @@ bool st_checkFrame(uint32_t generalRegisters[8],
                    uint8_t  flagsRegister,
                    uint8_t *memory)
 {
-    char     buffer[2048] = {0};
-    uint32_t buf32        = 0;
-    uint16_t buf16        = 0;
-    uint8_t  buf8         = 0;
-    bool     rc           = true;
-    
+    char            buffer[2048] = {0};
+    uint32_t        buf32        = 0;
+    uint16_t        buf16        = 0;
+    uint8_t         buf8         = 0;
+    bool            rc           = true;
+    struct timespec t            = {0};
+    uint64_t        elapsedTime  = 0;
 
     ++frame;
 
@@ -196,7 +226,7 @@ bool st_checkFrame(uint32_t generalRegisters[8],
         {
             if (stackPointer != buf16)
             {
-                printf("SP check failed in frame %u. Expected: 0x%04hx, got 0x%04hx\n", frame, buf16, stackSize);
+                printf("SP check failed in frame %u. Expected: 0x%04hx, got 0x%04hx\n", frame, buf16, stackPointer);
                 rc = false;
             }
         }
@@ -257,6 +287,17 @@ bool st_checkFrame(uint32_t generalRegisters[8],
 
     if (rc != false)
     {
+        if (0 != startTime)
+        {
+            clock_gettime(CLOCK_REALTIME, &t);
+
+            st_endInterruptTime();
+
+            elapsedTime = (t.tv_sec * SEC_TO_NSEC) + t.tv_nsec - startTime;
+
+            printf("Average clock speed: %.03lfMHz\n", (((double) frame / elapsedTime)) * 1000);
+        }
+
         printf("Success!\n");
     }
 

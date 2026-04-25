@@ -54,7 +54,7 @@ This interrupt is triggered when something in the stack experiences one of the f
 | Parameter Value | Meaning                               |
 | --------------- | ------------------------------------- |
 | 0x00            | empty pop                             |
-| 0x01            | critical space: <=64 bytes remaining* |
+| 0x01            | critical space: <=34 bytes remaining* |
 
 \* The critical space interrupt is only triggered once on the transition into the critical space state.
 

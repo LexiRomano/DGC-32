@@ -75,5 +75,31 @@
 :cmdToCpy
     BRAL-ABS      0x0           // frame 64
 
+:outAndBack
+    MOVE          G6 0x80       // frame 85
+    RETURN                      // frame 86
+
 :return
     MOVE          G0 0x12345    // frame 65
+
+    MOVE          SB 0x10000    // frame 66
+    MOVE          SP 0          // frame 67
+    MOVE          SS 0x100      // frame 68
+    PUSH          G0            // frame 69
+    PEEK          G2            // frame 70
+    POP           G3            // frame 71
+    MOVE          FL 0b1111     // frame 72
+    PUSH          FL            // frame 73
+    MOVE          FL 0b1010     // frame 74
+    PEEK          FL            // frame 75
+    MOVE          FL 0b1010     // frame 76
+    POP           FL            // frame 77
+    MOVE          SS 0x200      // frame 78
+    PUSH          SS            // frame 79
+    MOVE          SS 0x100      // frame 80
+    PEEK          SS            // frame 81
+    MOVE          SS 0x100      // frame 82
+    POP           SS            // frame 83
+
+    BRAL-P        outAndBack    // frame 84
+    MOVE          G6 0xFF       // frame 87

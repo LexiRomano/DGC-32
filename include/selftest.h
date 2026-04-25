@@ -1,7 +1,10 @@
 #ifndef __SELFTEST_H__
 #define __SELFTEST_H__
 
+#include <time.h>
 #include "dgc32.h"
+
+#define SEC_TO_NSEC 1000000000
 
 #define ST_FRAME_STRING "frame: %u"
 #define ST_G0_STRING    "G0: 0x%x"
@@ -27,6 +30,9 @@
 #define ST_FL_STRING    "FL: 0b%hhb"
 #define ST_MEM_STRING   "MEM: 0x%x 0x%hhx"
 
+void st_defineStartTime();
+void st_startInterruptTime();
+void st_endInterruptTime();
 bool st_checkFrame(uint32_t generalRegisters[8],
                    uint32_t offsetRegisters[3],
                    uint32_t stackBase,

@@ -522,7 +522,196 @@ static void doCompare(uint32_t a, uint32_t b)
                      (overflow             ? FLAG_V : 0));
 }
 
-static bool checkBranch(uint8_t branchVari, uint8_t insAug, uint32_t address)
+static uint32_t getValFromRegsel(uint8_t regsel)
+{
+    switch (regSize[regsel])
+    {
+        case 4:
+            return *regMap4[regsel];
+        case 2:
+            return (uint32_t) *regMap2[regsel];
+        case 1:
+            return (uint32_t) *regMap1[regsel];
+    }
+
+    return 0;
+}
+
+static inline void push32(uint32_t data)
+{
+    memcpy(&(memory[stackBase + stackPointer]), &data, sizeof(data));
+    stackPointer += sizeof(data);
+}
+
+static inline void push16(uint16_t data)
+{
+    memcpy(&(memory[stackBase + stackPointer]), &data, sizeof(data));
+    stackPointer += sizeof(data);
+}
+
+static inline void push8(uint8_t data)
+{
+    memcpy(&(memory[stackBase + stackPointer]), &data, sizeof(data));
+    stackPointer += sizeof(data);
+}
+
+static inline uint32_t peek32()
+{
+    uint32_t out = 0;
+    memcpy(&out, &(memory[stackBase + stackPointer - sizeof(out)]), sizeof(out));
+    return out;
+}
+
+static inline uint16_t peek16()
+{
+    uint16_t out = 0;
+    memcpy(&out, &(memory[stackBase + stackPointer - sizeof(out)]), sizeof(out));
+    return out;
+}
+
+static inline uint8_t peek8()
+{
+    uint8_t out = 0;
+    memcpy(&out, &(memory[stackBase + stackPointer - sizeof(out)]), sizeof(out));
+    return out;
+}
+
+static inline uint32_t pop32()
+{
+    uint32_t out = 0;
+    memcpy(&out, &(memory[stackBase + stackPointer - sizeof(out)]), sizeof(out));
+    stackPointer -= sizeof(out);
+    return out;
+}
+
+static inline uint16_t pop16()
+{
+    uint16_t out = 0;
+    memcpy(&out, &(memory[stackBase + stackPointer - sizeof(out)]), sizeof(out));
+    stackPointer -= sizeof(out);
+    return out;
+}
+
+static inline uint8_t pop8()
+{
+    uint8_t out = 0;
+    memcpy(&out, &(memory[stackBase + stackPointer - sizeof(out)]), sizeof(out));
+    stackPointer -= sizeof(out);
+    return out;
+}
+
+static bool doStackUtils(uint8_t stackVari, uint8_t regsel)
+{
+    //bool alreadyOverflowed = false;
+    //bool stackUnderflow    = false;
+
+    //alreadyOverflowed = stackPointer + stackSize + 34 >= STACK_OVERFLOW_THRESHOLD;
+
+    switch (stackVari)
+    {
+        case OP_CODE_STCK_PUSH_VARI:
+            switch(regSize[regsel])
+            {
+                case 4:
+                    push32(getValFromRegsel(regsel));
+                    break;
+                case 2:
+                    push16(getValFromRegsel(regsel));
+                    break;
+                case 1:
+                    push8(getValFromRegsel(regsel));
+            }
+            break;
+
+        case OP_CODE_STCK_POP_VARI:
+            /*
+            if (stackPointer < regSize[regsel])
+            {
+                stackUnderflow = true;
+                break;
+            }*/
+            switch(regSize[regsel])
+            {
+                case 4:
+                    transferVarToReg(regsel, pop32());
+                    break;
+                case 2:
+                    transferVarToReg(regsel, pop16());
+                    break;
+                case 1:
+                    transferVarToReg(regsel, pop8());
+            }
+            return true;
+
+        case OP_CODE_STCK_PUSHALL_VARI:
+            for (uint8_t i = 0; i < 7; i++)
+            {
+                push32(getValFromRegsel(regsel));
+            }
+            push8(flagsRegister);
+            break;
+
+        case OP_CODE_STCK_POPALL_VARI:
+            /*if (stackPointer < 33)
+            {
+                stackUnderflow = true;
+                break;
+            }*/
+            for (uint8_t i = 7; i < 0; i--)
+            {
+                push32(getValFromRegsel(regsel));
+            }
+            push8(flagsRegister);
+            return true;
+
+        case OP_CODE_STCK_PEEK_VARI:
+            /*if (stackPointer < regSize[regsel])
+            {
+                stackUnderflow = true;
+                break;
+            }*/
+            switch(regSize[regsel])
+            {
+                case 4:
+                    transferVarToReg(regsel, peek32());
+                    break;
+                case 2:
+                    transferVarToReg(regsel, peek16());
+                    break;
+                case 1:
+                    transferVarToReg(regsel, peek8());
+            }
+            return true;
+
+        case OP_CODE_STCK_RETURN_VARI:
+            /*if (stackPointer < 4)
+            {
+                stackUnderflow = true;
+                break;
+            }*/
+            if (stackPointer >= 4)
+            {
+                programCounter = pop32();
+                return false;
+            }
+    }
+
+    /*
+    // Check for stack overflow
+    if (false == alreadyOverflowed &&
+        stackPointer + stackSize + 34 >= STACK_OVERFLOW_THRESHOLD)
+    {
+        // TODO
+    }
+    else if (stackUnderflow)
+    {
+        // TODO
+    }*/
+
+    return true;
+}
+
+static bool checkBranch(uint8_t branchVari, uint8_t insAug, uint32_t address, bool isF4)
 {
     bool branch = false;
     switch (branchVari)
@@ -632,12 +821,17 @@ static bool checkBranch(uint8_t branchVari, uint8_t insAug, uint32_t address)
             }
         }
 
-        /*
         if (insAug & INS_AUG_PUSH_MASK)
         {
-            //TODO
+            if (isF4)
+            {
+                push32(programCounter + 5);
+            }
+            else
+            {
+                push32(programCounter + 9);
+            }
         }
-        */
 
         programCounter = address;
         
@@ -667,23 +861,12 @@ static uint32_t applyOffset(uint8_t insAug, uint32_t baseAddress)
     return baseAddress;
 }
 
-static uint32_t getValFromRegsel(uint8_t regsel)
-{
-    switch (regSize[regsel])
-    {
-        case 4:
-            return *regMap4[regsel];
-        case 2:
-            return (uint32_t) *regMap2[regsel];
-        case 1:
-            return (uint32_t) *regMap1[regsel];
-    }
-
-    return 0;
-}
-
 static void run()
 {
+    #ifdef SELF_TEST
+    st_defineStartTime();
+    #endif //SELFTEST
+
     while (true)
     {
         memcpy(&instructionRegister, &(memory[programCounter]), sizeof(instructionRegister));
@@ -802,7 +985,8 @@ static void run()
 
                 if (false == checkBranch(OP_CODE_GET_VARI(instructionRegister),
                                          instructionAugment,
-                                         getValFromRegsel(REGSEL_1_GET(instructionRegister))))
+                                         getValFromRegsel(REGSEL_1_GET(instructionRegister)),
+                                         true))
                 {
                     programCounter+=5;
                 }
@@ -815,15 +999,19 @@ static void run()
                 
                 if (false == checkBranch(OP_CODE_GET_VARI(instructionRegister),
                                          instructionAugment,
-                                         argumentAugment))
+                                         argumentAugment,
+                                         false))
                 {
                     programCounter+=9;
                 }
                 break;
 
             case OP_CODE_STCK_BASE:
-                // TODO
-                programCounter+=4;
+                if (true == doStackUtils(OP_CODE_GET_VARI(instructionRegister),
+                                         REGSEL_1_GET(instructionRegister)))
+                {
+                    programCounter+=4;
+                }
                 break;
 
             case OP_CODE_TERM_BASE:
@@ -831,6 +1019,8 @@ static void run()
         }
 
         #ifdef SELF_TEST
+
+        st_startInterruptTime();
 
         if (false == st_checkFrame(generalRegisters,
                                    offsetRegisters,
@@ -848,6 +1038,8 @@ static void run()
         {
             return;
         }
+
+        st_endInterruptTime();
         #endif // SELF_TEST
     }
 }

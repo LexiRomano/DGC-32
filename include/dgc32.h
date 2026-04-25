@@ -12,7 +12,6 @@
 #endif
 
 #define ROM_SIZE 0x4000
-
 #define MEMORY_SIZE 0x100000000
 
 // Op codes utils
@@ -88,8 +87,7 @@
 #define OP_CODE_STCK_PUSHALL_VARI 0x20
 #define OP_CODE_STCK_POPALL_VARI  0x30
 #define OP_CODE_STCK_PEEK_VARI    0x40
-#define OP_CODE_STCK_INIT_VARI    0x50
-#define OP_CODE_STCK_RETURN_VARI  0x60
+#define OP_CODE_STCK_RETURN_VARI  0x50
 
 #define OP_CODE_TERM_BASE 0x0F
 #define OP_CODE_TERM_FULL 0xFF
@@ -145,5 +143,8 @@
 #define FLAG_C 0b0010
 #define FLAG_N 0b0100
 #define FLAG_Z 0b1000
+
+// Misc
+#define STACK_OVERFLOW_THRESHOLD 34
 
 #endif // __DGC32_H__

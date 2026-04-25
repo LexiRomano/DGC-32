@@ -6,7 +6,7 @@ The stack's geometry is defined by two registers: the Stack Base (SB) and the St
 
 ### Interrupts
 
-In the case of a pop on an empty stack or the remaining size of the stack reaching <=64 bytes, an interrupt will be triggered. See `interrupts.md` for more information.
+In the case of a pop on an empty stack or the remaining size of the stack reaching <=34 bytes, an interrupt will be triggered. See `interrupts.md` for more information.
 
 ## Instructions
 

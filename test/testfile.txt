@@ -190,3 +190,97 @@ PC: 0x8000
 
 frame: 65
 G0: 0x12345
+
+// Check stack variable init
+frame: 68
+SB: 0x10000
+SP: 0x0
+SS: 0x100
+
+// Check push of a general register
+frame: 69
+G0: 0x12345
+SB: 0x10000
+SP: 0x4
+SS: 0x100
+MEM: 0x00010000 0x45
+MEM: 0x00010001 0x23
+MEM: 0x00010002 0x01
+MEM: 0x00010003 0x00
+
+// Check peek of a general register
+frame: 70
+G2: 0x12345
+SB: 0x10000
+SP: 0x4
+SS: 0x100
+MEM: 0x00010000 0x45
+MEM: 0x00010001 0x23
+MEM: 0x00010002 0x01
+MEM: 0x00010003 0x00
+
+// Check pop of a general register
+frame: 71
+G3: 0x12345
+SB: 0x10000
+SP: 0x0
+SS: 0x100
+
+// Check push of flag register
+frame: 73
+FL: 0b1111
+SB: 0x10000
+SP: 0x1
+SS: 0x100
+MEM: 0x00010000 0x0F
+
+// Check peek of flag register
+frame: 75
+FL: 0b1111
+SB: 0x10000
+SP: 0x1
+SS: 0x100
+MEM: 0x00010000 0x0F
+
+// Check pop of flag register
+frame: 77
+FL: 0b1111
+SB: 0x10000
+SP: 0x0
+SS: 0x100
+
+// Check push of stack size register
+frame: 79
+SB: 0x10000
+SP: 0x2
+SS: 0x200
+
+// Check peek of stack size register
+frame: 81
+SB: 0x10000
+SP: 0x2
+SS: 0x200
+
+// Check pop of stack size register
+frame: 83
+SB: 0x10000
+SP: 0x0
+SS: 0x200
+
+// Check branch with -P
+frame: 84
+SB: 0x10000
+SP: 0x4
+SS: 0x200
+
+frame: 85
+G6: 0x80
+
+// Check return
+frame: 86
+SB: 0x10000
+SP: 0x0
+SS: 0x200
+
+frame: 87
+G6: 0xFF
