@@ -504,6 +504,24 @@ static void doMath(uint8_t opcodeVari, uint8_t destRegsel, uint32_t a, uint32_t 
                      (overflow             ? FLAG_V : 0));
 }
 
+static void doCompare(uint32_t a, uint32_t b)
+{
+    uint32_t result   = 0;
+    bool     carry    = false;
+    bool     overflow = false;
+
+    b = (~b) +1;
+    result = a + b;
+    carry  = result < a;
+    overflow = carry ^
+                (0 !=(((a & 0x7FFFFFFF) + (b & 0x7FFFFFFF)) & 0x80000000));
+
+    flagsRegister = ((result == 0          ? FLAG_Z : 0) +
+                     (result >  0x7FFFFFFF ? FLAG_N : 0) +
+                     (carry                ? FLAG_C : 0) +
+                     (overflow             ? FLAG_V : 0));
+}
+
 static uint32_t applyOffset(uint8_t insAug, uint32_t baseAddress)
 {
     if (0 != (insAug & INS_AUG_REL_MASK))
@@ -643,12 +661,15 @@ static void run()
                 break;
 
             case OP_CODE_COMP_F2:
-                // TODO
+                doCompare(getValFromRegsel(REGSEL_2_GET(instructionRegister)),
+                          getValFromRegsel(REGSEL_3_GET(instructionRegister)));
                 programCounter+=4;
                 break;
 
             case OP_CODE_COMP_F4:
-                // TODO
+                memcpy(&argumentAugment, &(memory[programCounter + 4]), sizeof(argumentAugment));
+                doCompare(getValFromRegsel(REGSEL_2_GET(instructionRegister)),
+                          argumentAugment);
                 programCounter+=8;
                 break;
 

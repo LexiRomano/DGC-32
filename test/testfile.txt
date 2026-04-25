@@ -129,17 +129,29 @@ frame: 32
 G0: 0x3FFFFFFF
 FL: 0b0010
 
-// Check form 3 SUB, 2 - 1 = 1
+// Check form 4 COMP, 2 - 1 = 1
 frame: 34
+FL: 0b0010
+
+// Check form 3 SUB, 2 - 1 = 1
+frame: 35
 G0: 0x1
 FL: 0b0010
 
+// Check form 4 COMP, 1 - 1 = 0
+frame: 36
+FL: 0b1010
+
 // Check form 3 SUB, 1 - 1 = 0
-frame: 35
+frame: 37
 G1: 0x0
 FL: 0b1010
 
+// Check form 4 COMP, 1 - 2 = -1 (0xFFFFFFFF)
+frame: 38
+FL: 0b0100
+
 // Check form 3 SUB 1 - 2 = -1 (0xFFFFFFFF)
-frame: 36
+frame: 39
 G1: 0xFFFFFFFF
 FL: 0b0100

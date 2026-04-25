@@ -33,6 +33,9 @@
     BSRC          G0 G0 1       // frame 31
     BSRT          G0 G0 1       // frame 32
     MOVE          G0 2          // frame 33
-    SUB           G0 G0 1       // frame 34
-    SUB           G1 G0 1       // frame 35
-    SUB           G1 G0 2       // frame 36
+    COMP          G0 1          // frame 34
+    SUB           G0 G0 1       // frame 35
+    COMP          G0 1          // frame 36
+    SUB           G1 G0 1       // frame 37
+    COMP          G0 2          // frame 38
+    SUB           G1 G0 2       // frame 39
