@@ -39,3 +39,24 @@
     SUB           G1 G0 1       // frame 37
     COMP          G0 2          // frame 38
     SUB           G1 G0 2       // frame 39
+    BRAL          branch1       // frame 40
+
+:branchTrash
+    NOOP                        // no frame
+    NOOP                        // no frame
+
+:branch1
+    MOVE          G0 0xB1       // frame 41
+    COMP          G0 G0         // frame 42
+    BRNE          branchTrash   // frame 43
+    MOVE          G0 0xF2       // frame 44
+    BREQ          branch2       // frame 45
+    NOOP                        // no frame
+
+:branch2
+    MOVE          G0 0xB2       // frame 46
+
+:loopTop
+    SUB           G0 G0 0x40    // frame 47, 49, 51
+    BRGT          loopTop       // frame 48, 50, 52
+    MOVE          G0 0x80       // frame 53

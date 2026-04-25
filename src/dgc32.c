@@ -522,6 +522,130 @@ static void doCompare(uint32_t a, uint32_t b)
                      (overflow             ? FLAG_V : 0));
 }
 
+static bool checkBranch(uint8_t branchVari, uint8_t insAug, uint32_t address)
+{
+    bool branch = false;
+    switch (branchVari)
+    {
+        case OP_CODE_BRNC_AL_VARI:
+            branch = true;
+            break;
+
+        case OP_CODE_BRNC_EQ_VARI:
+            // Z==1
+            branch = (flagsRegister & FLAG_Z) != 0;
+            break;
+
+        case OP_CODE_BRNC_NE_VARI:
+            // Z==0
+            branch = (flagsRegister & FLAG_Z) == 0;
+            break;
+
+        case OP_CODE_BRNC_HI_VARI:
+            // C==1 && Z==0
+            branch = ((flagsRegister & FLAG_C) != 0) &&
+                     ((flagsRegister & FLAG_Z) == 0);
+            break;
+
+        case OP_CODE_BRNC_HS_VARI:
+            // C==1
+            branch = (flagsRegister & FLAG_C) != 0;
+            break;
+
+        case OP_CODE_BRNC_LS_VARI:
+            // C==0 || Z==1
+            branch = ((flagsRegister & FLAG_C) == 0) ||
+                     ((flagsRegister & FLAG_Z) != 0);
+            break;
+
+        case OP_CODE_BRNC_LO_VARI:
+            // C==0
+            branch = (flagsRegister & FLAG_C) == 0;
+            break;
+
+        case OP_CODE_BRNC_GT_VARI:
+            // Z==0 && N==V
+            branch = ((flagsRegister & FLAG_Z) == 0) &&
+                     (((flagsRegister & FLAG_N) == 0) == 
+                      ((flagsRegister & FLAG_V) == 0));
+            break;
+        
+        case OP_CODE_BRNC_GE_VARI:
+            // N==V
+            branch = ((flagsRegister & FLAG_N) == 0) == 
+                     ((flagsRegister & FLAG_V) == 0);
+            break;
+
+        case OP_CODE_BRNC_LE_VARI:
+            // Z==1 || N!=V
+             branch = ((flagsRegister & FLAG_Z) != 0) ||
+                     (((flagsRegister & FLAG_N) == 0) != 
+                      ((flagsRegister & FLAG_V) == 0));
+            break;
+        
+        case OP_CODE_BRNC_LT_VARI:
+            // N!=V
+            branch = ((flagsRegister & FLAG_N) == 0) != 
+                     ((flagsRegister & FLAG_V) == 0);
+            break;
+
+        case OP_CODE_BRNC_MI_VARI:
+            // N==1
+            branch = (flagsRegister & FLAG_N) != 0;
+            break;
+
+        case OP_CODE_BRNC_PZ_VARI:
+            // N==0
+            branch = (flagsRegister & FLAG_N) == 0;
+            break;
+
+        case OP_CODE_BRNC_OV_VARI:
+            // V==1
+            branch = (flagsRegister & FLAG_V) != 0;
+            break;
+
+        case OP_CODE_BRNC_NV_VARI:
+            // V==0
+            branch = (flagsRegister & FLAG_V) == 0;
+    }
+
+    if (branch)
+    {
+        if (insAug & INS_AUG_REL_MASK)
+        {
+            address += programCounter;
+        }
+        else
+        {
+            switch (insAug & INS_AUG_OFFSET_REGSEL_MASK)
+            {
+                case INS_AUG_OFFSET_REGSEL_OA:
+                    address += offsetRegisters[0];
+                    break;
+                
+                case INS_AUG_OFFSET_REGSEL_OB:
+                    address += offsetRegisters[1];
+                    break;
+
+                case INS_AUG_OFFSET_REGSEL_OC:
+                    address += offsetRegisters[2];
+            }
+        }
+
+        /*
+        if (insAug & INS_AUG_PUSH_MASK)
+        {
+            //TODO
+        }
+        */
+
+        programCounter = address;
+        
+    }
+
+    return branch;
+}
+
 static uint32_t applyOffset(uint8_t insAug, uint32_t baseAddress)
 {
     if (0 != (insAug & INS_AUG_REL_MASK))
@@ -674,13 +798,27 @@ static void run()
                 break;
 
             case OP_CODE_BRNC_BASE_F4:
-                // TODO
-                programCounter+=5;
+                memcpy(&instructionAugment, &(memory[programCounter + 4]), sizeof(instructionAugment));
+
+                if (false == checkBranch(OP_CODE_GET_VARI(instructionRegister),
+                                         instructionAugment,
+                                         getValFromRegsel(REGSEL_1_GET(instructionRegister))))
+                {
+                    programCounter+=5;
+                }
+
                 break;
 
             case OP_CODE_BRNC_BASE_F6:
-                // TODO
-                programCounter+=9;
+                memcpy(&instructionAugment, &(memory[programCounter + 4]), sizeof(instructionAugment));
+                memcpy(&argumentAugment,    &(memory[programCounter + 5]), sizeof(argumentAugment));
+                
+                if (false == checkBranch(OP_CODE_GET_VARI(instructionRegister),
+                                         instructionAugment,
+                                         argumentAugment))
+                {
+                    programCounter+=9;
+                }
                 break;
 
             case OP_CODE_STCK_BASE:

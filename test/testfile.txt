@@ -155,3 +155,28 @@ FL: 0b0100
 frame: 39
 G1: 0xFFFFFFFF
 FL: 0b0100
+
+// Check form 6 BRAL
+frame: 41
+G0: 0xB1
+
+// Check from 6 BRNE
+frame: 44
+G0: 0xF2
+
+// Check form 6 BREQ
+frame: 46
+G0: 0xB2
+
+// Check form 6 BRGT with a loop
+frame: 47
+G0: 0x72
+
+frame: 49
+G0: 0x32
+
+frame: 51
+G0: 0xFFFFFFF2
+
+frame: 53
+G0: 0x80
