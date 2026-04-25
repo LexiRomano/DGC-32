@@ -255,7 +255,10 @@ bool st_checkFrame(uint32_t generalRegisters[8],
         }
     }
 
-    printf("Success!\n");
+    if (rc != false)
+    {
+        printf("Success!\n");
+    }
 
     return false;
 }

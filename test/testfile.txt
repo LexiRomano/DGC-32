@@ -180,3 +180,13 @@ G0: 0xFFFFFFF2
 
 frame: 53
 G0: 0x80
+
+// Check form 3 BRAL and LOAD with relative absolute address
+frame: 62
+G1: 0x8000
+
+frame: 63
+PC: 0x8000
+
+frame: 65
+G0: 0x12345

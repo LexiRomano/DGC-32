@@ -60,3 +60,20 @@
     SUB           G0 G0 0x40    // frame 47, 49, 51
     BRGT          loopTop       // frame 48, 50, 52
     MOVE          G0 0x80       // frame 53
+
+    GETABS        G0 cmdToCpy   // frame 54
+    LOAD-ABS      G1 G0         // frame 55
+    STOR-ABS      G1 0x8000     // frame 56
+    ADD           G0 G0 4       // frame 57
+    LOAD-W1S0-ABS G1 G0         // frame 58
+    STOR-W1S0-ABS G1 0x8004     // frame 59
+    GETABS        G1 return     // frame 60
+    STOR-ABS      G1 0x8005     // frame 61
+    MOVE          G1 0x8000     // frame 62
+    BRAL-ABS      G1            // frame 63
+
+:cmdToCpy
+    BRAL-ABS      0x0           // frame 64
+
+:return
+    MOVE          G0 0x12345    // frame 65
