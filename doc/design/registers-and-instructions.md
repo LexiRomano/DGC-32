@@ -19,6 +19,7 @@ Internal Registers:
 - AA - Argument augment - 32bit
 - IA - Instruction augment - 8bit
 - IR - Interrupt return address - 32bit
+- CI - Current interrupt - 16bit
 - IH - Interrupt head - 8bit
 - IT - Interrupt tail - 8bit
 - ST - Status register - 8bit

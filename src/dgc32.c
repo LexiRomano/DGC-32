@@ -5,25 +5,25 @@ static char    *romLocation = NULL;
 #define DEFAULT_ROM_LOCATION "./rom.bin"
 
 // Exposed registers
-static uint32_t generalRegisters[8] = {0};
-static uint32_t offsetRegisters[3]  = {0};
-static uint32_t stackBase           = 0;
-static uint16_t stackSize           = 0;
-static uint16_t stackPointer        = 0;
-static uint32_t interruptTable      = 0;
-static uint8_t  flagsRegister       = 0;
+static uint32_t generalRegisters[8]    = {0};
+static uint32_t offsetRegisters[3]     = {0};
+static uint32_t stackBase              = 0;
+static uint16_t stackSize              = 0;
+static uint16_t stackPointer           = 0;
+static uint32_t interruptTable         = 0;
+static uint8_t  flagsRegister          = 0;
 
 
 // Internal registers
-static uint32_t programCounter      = 0;
-static uint32_t instructionRegister = 0;
-static uint8_t  instructionAugment  = 0;
-static uint32_t argumentAugment     = 0;
-
-#ifdef SELF_TEST
-static uint8_t  interruptHead       = 0;
-static uint8_t  interruptTail       = 0;
-#endif //SELF_TEST
+static uint32_t programCounter         = 0;
+static uint32_t instructionRegister    = 0;
+static uint8_t  instructionAugment     = 0;
+static uint32_t argumentAugment        = 0;
+static uint32_t interruptReturnAddress = 0;
+static uint16_t currentInterrupt       = 0;
+static uint8_t  interruptHead          = 0;
+static uint8_t  interruptTail          = 0;
+static uint8_t  statusRegister         = 0;
 
 uint8_t regSize[] =
 {
@@ -103,6 +103,12 @@ uint8_t *regMap1[] =
     NULL, // SP
     NULL, // IL
     &flagsRegister
+};
+
+uint8_t criticalInterruptIDs[] =
+{
+    0x05, // Critical stack event
+    0x09  // Memory violation
 };
 
 /*******************************************************************************
@@ -434,6 +440,134 @@ static inline void transferVarToReg(uint8_t toRegsel, uint32_t fromVar)
     }
 }
 
+static inline uint32_t getValFromRegsel(uint8_t regsel)
+{
+    switch (regSize[regsel])
+    {
+        case 4:
+            return *regMap4[regsel];
+        case 2:
+            return (uint32_t) *regMap2[regsel];
+        case 1:
+            return (uint32_t) *regMap1[regsel];
+    }
+
+    return 0;
+}
+
+static inline void enqueueInterrupt(uint16_t interrupt)
+{
+    memcpy(&(memory[INTERRUPT_QUEUE_BASE + interruptHead]), &interrupt, sizeof(interrupt));
+
+    interruptHead = (interruptHead + 2) % INTERRUPT_QUEUE_SIZE;
+}
+
+static inline void enqueueCriticalInterrupt(uint16_t interrupt)
+{
+    interruptTail = (interruptTail - 2) % INTERRUPT_QUEUE_SIZE;
+    memcpy(&(memory[INTERRUPT_QUEUE_BASE + interruptTail]), &interrupt, sizeof(interrupt));
+}
+
+static inline void peekInterrupt(uint16_t *interrupt)
+{
+    memcpy(interrupt, &(memory[INTERRUPT_QUEUE_BASE + interruptTail]), sizeof(*interrupt));
+}
+
+static inline void dequeueInterrupt(uint16_t *interrupt)
+{
+    peekInterrupt(interrupt);
+
+    interruptTail = (interruptTail + 2) % INTERRUPT_QUEUE_SIZE;
+}
+
+static inline bool isInterruptQueueEmpty()
+{
+    return interruptHead == interruptTail;
+}
+
+static inline uint32_t getInterruptHandleLocation(uint8_t iid)
+{
+    uint32_t out = 0;
+
+    memcpy(&out, &(memory[interruptTable + (iid * sizeof(out))]), sizeof(out));
+
+    return out;
+}
+
+static bool doInterruptUtils(uint8_t intVari, uint8_t regsel, uint32_t arg)
+{
+    switch (intVari)
+    {
+        case OP_CODE_INTR_SUS_VARI:
+            statusRegister = statusRegister | STAT_REG_INT_SUS_MASK;
+            break;
+
+        case OP_CODE_INTR_RES_VARI:
+            statusRegister = statusRegister & (~(STAT_REG_INT_IN_PROG_MASK+
+                                                 STAT_REG_INT_SUS_MASK));
+            break;
+
+        case OP_CODE_INTR_TRIG_F4_VARI:
+            enqueueInterrupt(getValFromRegsel(regsel) & INTERRUPT_FULL_MASK);
+            break;
+
+        case OP_CODE_INTR_TRIG_F7_VARI:
+            enqueueInterrupt(arg & INTERRUPT_FULL_MASK);
+            break;
+
+        case OP_CODE_INTR_FIN_VARI:
+            programCounter = interruptReturnAddress;
+            statusRegister = statusRegister & (~STAT_REG_INT_IN_PROG_MASK);
+            return false;
+
+        case OP_CODE_INTR_GPR:
+            transferVarToReg(regsel, (currentInterrupt & INTERRUPT_ARG_MASK) >> INTERRUPT_ARG_OFFSET);
+    }
+
+    return true;
+}
+
+static void detectInterrupt()
+{
+    bool isCriticalInterrupt = false;
+
+
+    if (0 != (statusRegister & STAT_REG_INT_IN_PROG_MASK))
+    {
+        return;
+    }
+
+    if (isInterruptQueueEmpty())
+    {
+        return;
+    }
+
+    peekInterrupt(&currentInterrupt);
+
+    for (uint8_t i = 0; i < (sizeof(criticalInterruptIDs) / sizeof(criticalInterruptIDs[0])); i++)
+    {
+        if (criticalInterruptIDs[i] == (currentInterrupt & INTERRUPT_ID_MASK))
+        {
+            isCriticalInterrupt = true;
+            break;
+        }
+    }
+
+    if (false == isCriticalInterrupt &&
+        ((statusRegister & STAT_REG_INT_SUS_MASK) != 0))
+    {
+        return;
+    }
+
+    dequeueInterrupt(&currentInterrupt);
+
+    interruptReturnAddress = programCounter;
+    
+    programCounter = getInterruptHandleLocation(currentInterrupt & INTERRUPT_ID_MASK);
+
+    statusRegister = statusRegister | STAT_REG_INT_IN_PROG_MASK;
+}
+
 static void doMath(uint8_t opcodeVari, uint8_t destRegsel, uint32_t a, uint32_t b)
 {
     uint32_t result = 0;
@@ -522,21 +656,6 @@ static void doCompare(uint32_t a, uint32_t b)
                      (overflow             ? FLAG_V : 0));
 }
 
-static uint32_t getValFromRegsel(uint8_t regsel)
-{
-    switch (regSize[regsel])
-    {
-        case 4:
-            return *regMap4[regsel];
-        case 2:
-            return (uint32_t) *regMap2[regsel];
-        case 1:
-            return (uint32_t) *regMap1[regsel];
-    }
-
-    return 0;
-}
-
 static inline void push32(uint32_t data)
 {
     memcpy(&(memory[stackBase + stackPointer]), &data, sizeof(data));
@@ -602,10 +721,10 @@ static inline uint8_t pop8()
 
 static bool doStackUtils(uint8_t stackVari, uint8_t regsel)
 {
-    //bool alreadyOverflowed = false;
-    //bool stackUnderflow    = false;
+    bool alreadyOverflowed = false;
+    bool stackUnderflow    = false;
 
-    //alreadyOverflowed = stackPointer + stackSize + 34 >= STACK_OVERFLOW_THRESHOLD;
+    alreadyOverflowed = stackPointer + STACK_OVERFLOW_THRESHOLD >= stackSize;
 
     switch (stackVari)
     {
@@ -624,12 +743,11 @@ static bool doStackUtils(uint8_t stackVari, uint8_t regsel)
             break;
 
         case OP_CODE_STCK_POP_VARI:
-            /*
             if (stackPointer < regSize[regsel])
             {
                 stackUnderflow = true;
                 break;
-            }*/
+            }
             switch(regSize[regsel])
             {
                 case 4:
@@ -652,11 +770,11 @@ static bool doStackUtils(uint8_t stackVari, uint8_t regsel)
             break;
 
         case OP_CODE_STCK_POPALL_VARI:
-            /*if (stackPointer < 33)
+            if (stackPointer < 33)
             {
                 stackUnderflow = true;
                 break;
-            }*/
+            }
             for (uint8_t i = 7; i < 0; i--)
             {
                 push32(getValFromRegsel(regsel));
@@ -665,11 +783,11 @@ static bool doStackUtils(uint8_t stackVari, uint8_t regsel)
             return true;
 
         case OP_CODE_STCK_PEEK_VARI:
-            /*if (stackPointer < regSize[regsel])
+            if (stackPointer < regSize[regsel])
             {
                 stackUnderflow = true;
                 break;
-            }*/
+            }
             switch(regSize[regsel])
             {
                 case 4:
@@ -684,11 +802,11 @@ static bool doStackUtils(uint8_t stackVari, uint8_t regsel)
             return true;
 
         case OP_CODE_STCK_RETURN_VARI:
-            /*if (stackPointer < 4)
+            if (stackPointer < 4)
             {
                 stackUnderflow = true;
                 break;
-            }*/
+            }
             if (stackPointer >= 4)
             {
                 programCounter = pop32();
@@ -696,17 +814,17 @@ static bool doStackUtils(uint8_t stackVari, uint8_t regsel)
             }
     }
 
-    /*
+
     // Check for stack overflow
     if (false == alreadyOverflowed &&
-        stackPointer + stackSize + 34 >= STACK_OVERFLOW_THRESHOLD)
+        stackPointer + STACK_OVERFLOW_THRESHOLD >= stackSize)
     {
-        // TODO
+        enqueueCriticalInterrupt(INTERRUPT_CODE_CRITICAL_STACK);
     }
     else if (stackUnderflow)
     {
-        // TODO
-    }*/
+        enqueueCriticalInterrupt(INTERRULT_CODE_EMPTY_POP);
+    }
 
     return true;
 }
@@ -869,6 +987,8 @@ static void run()
 
     while (true)
     {
+        detectInterrupt();
+
         memcpy(&instructionRegister, &(memory[programCounter]), sizeof(instructionRegister));
 
         switch (OP_CODE_GET_BASE(instructionRegister))
@@ -878,8 +998,12 @@ static void run()
                 break;
 
             case OP_CODE_INTR_BASE:
-                // TODO
-                programCounter+=4;
+                if (true == doInterruptUtils(OP_CODE_GET_VARI(instructionRegister),
+                                             REGSEL_1_GET(instructionRegister),
+                                             ARG_F7_GET(instructionRegister)))
+                {
+                    programCounter+=4;
+                }
                 break;
 
             case OP_CODE_LOAD_F2:
@@ -1034,6 +1158,7 @@ static void run()
                                    interruptTail,
                                    stackPointer,
                                    flagsRegister,
+                                   currentInterrupt,
                                    memory))
         {
             return;

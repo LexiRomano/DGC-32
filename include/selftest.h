@@ -28,6 +28,7 @@
 #define ST_IT_STRING    "IT: 0x%hhx"
 #define ST_SP_STRING    "SP: 0x%hx"
 #define ST_FL_STRING    "FL: 0b%hhb"
+#define ST_CI_STRING    "CI: 0x%hx"
 #define ST_MEM_STRING   "MEM: 0x%x 0x%hhx"
 
 void st_defineStartTime();
@@ -45,6 +46,7 @@ bool st_checkFrame(uint32_t generalRegisters[8],
                    uint8_t  interruptTail,
                    uint16_t stackPointer,
                    uint8_t  flagsRegister,
+                   uint16_t currentInterrupt,
                    uint8_t *memory);
 bool st_setTestFile(char *arg);
 void st_exit();

@@ -284,3 +284,69 @@ SS: 0x200
 
 frame: 87
 G6: 0xFF
+
+// Check interrupt pointers pre-invocation
+frame: 92
+OA: 0x10000
+IL: 0x10000
+IH: 0x0
+IT: 0x0
+
+// Check interrupt enqueue
+frame: 94
+IH: 0x2
+IT: 0x0
+MEM: 0x00004000 0x40
+MEM: 0x00004001 0xFF
+
+// Check interrupt handle
+frame: 95
+CI: 0xFF40
+G0: 0xABCD
+
+
+// Check getting interrupt parameter
+frame: 96
+G0: 0xFF
+
+// Check finishing interrupt
+frame: 98
+G0: 0xEF01
+
+
+// Check susspending interrupts
+frame: 101
+G0: 0x2345
+
+// Check resuming interrupts
+frame: 103
+G0: 0xABCD
+
+frame: 106
+G0: 0x6789
+
+// Check first level of recursive interrupt call
+frame: 112
+G0: 0x22
+
+// Check second level of recursive interrupt call
+frame: 115
+G0: 0x33
+
+// Check exit of recursive interrupt call
+frame: 117
+G0: 0xFFFFF
+
+// Check stack pop on empty critcal interrupt
+frame: 123
+G0: 0x0
+
+// Check critical stack space interrupt
+frame: 127
+G0: 0x20
+
+frame: 129
+G0: 0x1
+
+frame: 131
+G0: 0x30

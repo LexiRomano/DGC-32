@@ -46,6 +46,7 @@ bool st_checkFrame(uint32_t generalRegisters[8],
                    uint8_t  interruptTail,
                    uint16_t stackPointer,
                    uint8_t  flagsRegister,
+                   uint16_t currentInterrupt,
                    uint8_t *memory)
 {
     char            buffer[2048] = {0};
@@ -235,6 +236,14 @@ bool st_checkFrame(uint32_t generalRegisters[8],
             if (flagsRegister != buf8)
             {
                 printf("FL check failed in frame %u. Expected: 0b%04hhb, got 0b%04hhb\n", frame, buf8, flagsRegister);
+                rc = false;
+            }
+        }
+        else if (0 != sscanf(buffer, ST_CI_STRING, &buf16))
+        {
+            if (currentInterrupt != buf16)
+            {
+                printf("CI check failed in frame %u. Expected: 0x%04hx, got 0x%04hx\n", frame, buf16, currentInterrupt);
                 rc = false;
             }
         }

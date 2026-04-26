@@ -103,3 +103,58 @@
 
     BRAL-P        outAndBack    // frame 84
     MOVE          G6 0xFF       // frame 87
+
+// Interrupts. Table starts at 0x10000
+    MOVE          IL 0x10000    // frame 88
+    MOVE          OA IL         // frame 89
+    GETABS        G0 critStack  // frame 90
+    STOR-OA       G0 0x14       // frame 91
+    GETABS        G0 sysCall1   // frame 92
+    STOR-OA       G0 0x100      // frame 93
+
+    INTTRG        0xFF40        // frame 94
+    MOVE          G0 0xEF01     // frame 98
+    INTSUS                      // frame 99
+    INTTRG        0xFF40        // frame 100
+    MOVE          G0 0x2345     // frame 101
+    INTRES                      // frame 102
+    MOVE          G0 0x6789     // frame 106
+
+    GETABS        G0 sysCall2   // frame 107
+    STOR-OA       G0 0x104      // frame 108
+    GETABS        G0 sysCall3   // frame 109
+    STOR-OA       G0 0x108      // frame 110
+
+    INTTRG        0x2241        // frame 111
+    MOVE          G0 0xFFFFF    // frame 117
+
+    MOVE          SB 0x8000     // frame 118
+    MOVE          SP 0          // frame 119
+    MOVE          SS 39         // frame 120
+    INTSUS                      // frame 121
+    POP           G0            // frame 122
+    MOVE          G0 0x10       // frame 125
+    PUSH          G0            // frame 126
+    MOVE          G0 0x20       // frame 127
+    PUSH          G0            // frame 128
+    MOVE          G0 0x30       // frame 131
+
+
+
+:sysCall1
+    MOVE          G0 0xABCD     // frame 95, 103
+    INTGPR        G0            // frame 96, 104
+    INTFIN                      // frame 97, 105
+
+:sysCall2
+    INTGPR        G0            // frame 112
+    INTTRG        0x3342        // frame 113
+    INTFIN                      // frame 114
+    
+:sysCall3
+    INTGPR        G0            // frame 115
+    INTFIN                      // frame 116
+
+:critStack
+    INTGPR        G0            // frame 123, 129
+    INTFIN                      // frame 124, 130
