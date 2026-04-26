@@ -359,3 +359,60 @@ G1: 0x1000
 frame: 137
 FL: 0b0100
 G0: 0x8888
+
+// Check memory violation: write to start of ROM
+frame: 142
+G0: 0xFFFF
+MEM: 0x00000000 0x00
+MEM: 0x00000001 0x00
+
+frame: 144
+G0: 0x1111
+
+// Check memory violation, write between ROM and HRES
+frame: 146
+G0: 0xFFFF
+
+frame: 148
+G0: 0x2222
+
+// Check memory violation, write to HRES
+frame: 150
+G0: 0xFFFF
+
+frame: 152
+G0: 0x3333
+
+// Check no memory violation, read end of ROM
+frame: 154
+G0: 0x4444
+
+// Check memory violation, read between ROM and HRES
+frame: 156
+G0: 0xFFFF
+
+frame: 158
+G0: 0x5555
+
+// Check no memory violation, read from start of DREG
+frame: 160
+G0: 0x6666
+
+// Check memory violation, write to start of DREG
+frame: 162
+G0: 0xFFFF
+
+frame: 164
+G0: 0x7777
+
+// Check memory violation, write betweel DREG and DDAT
+frame: 166
+G0: 0xFFFF
+
+frame: 168
+G0: 0x8888
+
+
+// Check no memory violation, write to start of DDAT
+frame: 170
+G0: 0x9999

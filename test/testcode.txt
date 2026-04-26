@@ -169,3 +169,33 @@
     MOVE          G0 0xFFFF     // no frame
 :goodBrlo
     MOVE          G0 0x8888     // frame 137
+
+// Memory violations
+    GETABS        G0 memv       // frame 138
+    MOVE          OA IL         // frame 139
+    STOR-OA       G0 0x24       // frame 140
+    STOR-ABS      G0 0          // frame 141
+    MOVE          G0 0x1111     // frame 144
+    STOR-ABS      G0 0x3FFE     // frame 145
+    MOVE          G0 0x2222     // frame 148
+    STOR-ABS      G0 0x4000     // frame 149
+    MOVE          G0 0x3333     // frame 152
+    LOAD-ABS      G1 0x3FFC     // frame 153
+    MOVE          G0 0x4444     // frame 154
+    LOAD-ABS      G1 0x3FFD     // frame 155
+    MOVE          G0 0x5555     // frame 158
+    LOAD-ABS      G1 0x6000     // frame 159
+    MOVE          G0 0x6666     // frame 160
+    STOR-ABS      G1 0x6000     // frame 161
+    MOVE          G0 0x7777     // frame 164
+    STOR-ABS      G1 0x60FF     // frame 165
+    MOVE          G0 0x8888     // frame 168
+    STOR-ABS      G1 0x6100     // frame 169
+    MOVE          G0 0x9999     // frame 170
+
+:memv
+    MOVE          G0 0xFFFF     // frame 142, 146, 150,
+                                // 156, 162, 166
+
+    INTFIN                      // frame 143, 147, 151,
+                                // 157, 163, 167

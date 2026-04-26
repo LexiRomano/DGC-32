@@ -187,6 +187,12 @@ static bool init()
     return true;
 }
 
+static inline void enqueueCriticalInterrupt(uint16_t interrupt)
+{
+    interruptTail = (interruptTail - 2) % INTERRUPT_QUEUE_SIZE;
+    memcpy(&(memory[INTERRUPT_QUEUE_BASE + interruptTail]), &interrupt, sizeof(interrupt));
+}
+
 static inline void transferRegToReg(uint8_t toRegsel, uint8_t fromRegsel)
 {
     uint32_t bus = 0;
@@ -225,6 +231,32 @@ static void transferMemToReg(uint8_t toRegsel, uint32_t fromAddress, uint8_t ins
     uint32_t *reg32 = NULL;
     uint16_t *reg16 = NULL;
     uint8_t  *reg8  = NULL;
+
+    // Check for memory violations
+    switch (insAug & INS_AUG_WORD_SIZE_MASK)
+    {
+        case INS_AUG_WORD_SIZE_4:
+        case INS_AUG_WORD_SIZE_INVALID:
+            if (false == MEMBOUND_CAN_READ(fromAddress, 4))
+            {
+                enqueueCriticalInterrupt(INTERRUPT_CODE_MEMORY_VIOLATION);
+                return;
+            }
+            break;
+        case INS_AUG_WORD_SIZE_2:
+            if (false == MEMBOUND_CAN_READ(fromAddress, 2))
+            {
+                enqueueCriticalInterrupt(INTERRUPT_CODE_MEMORY_VIOLATION);
+                return;
+            }
+            break;
+        case INS_AUG_WORD_SIZE_1:
+            if (false == MEMBOUND_CAN_READ(fromAddress, 1))
+            {
+                enqueueCriticalInterrupt(INTERRUPT_CODE_MEMORY_VIOLATION);
+                return;
+            }
+    }
 
     switch (regSize[toRegsel])
     {
@@ -326,6 +358,32 @@ static void transferRegToMem(uint32_t toAddress, uint8_t fromRegsel, uint8_t ins
     uint32_t  buf32 = 0;
     uint16_t  buf16 = 0;
     uint8_t   buf8  = 0;
+
+    // Check for memory violations
+    switch (insAug & INS_AUG_WORD_SIZE_MASK)
+    {
+        case INS_AUG_WORD_SIZE_4:
+        case INS_AUG_WORD_SIZE_INVALID:
+            if (false == MEMBOUND_CAN_WRITE(toAddress, 4))
+            {
+                enqueueCriticalInterrupt(INTERRUPT_CODE_MEMORY_VIOLATION);
+                return;
+            }
+            break;
+        case INS_AUG_WORD_SIZE_2:
+            if (false == MEMBOUND_CAN_WRITE(toAddress, 2))
+            {
+                enqueueCriticalInterrupt(INTERRUPT_CODE_MEMORY_VIOLATION);
+                return;
+            }
+            break;
+        case INS_AUG_WORD_SIZE_1:
+            if (false == MEMBOUND_CAN_WRITE(toAddress, 1))
+            {
+                enqueueCriticalInterrupt(INTERRUPT_CODE_MEMORY_VIOLATION);
+                return;
+            }
+    }
 
     switch (regSize[fromRegsel])
     {
@@ -462,12 +520,6 @@ static inline void enqueueInterrupt(uint16_t interrupt)
     interruptHead = (interruptHead + 2) % INTERRUPT_QUEUE_SIZE;
 }
 
-static inline void enqueueCriticalInterrupt(uint16_t interrupt)
-{
-    interruptTail = (interruptTail - 2) % INTERRUPT_QUEUE_SIZE;
-    memcpy(&(memory[INTERRUPT_QUEUE_BASE + interruptTail]), &interrupt, sizeof(interrupt));
-}
-
 static inline void peekInterrupt(uint16_t *interrupt)
 {
     memcpy(interrupt, &(memory[INTERRUPT_QUEUE_BASE + interruptTail]), sizeof(*interrupt));
@@ -531,13 +583,17 @@ static void detectInterrupt()
 {
     bool isCriticalInterrupt = false;
 
+    if (isInterruptQueueEmpty())
+    {
+        return;
+    }
 
     if (0 != (statusRegister & STAT_REG_INT_IN_PROG_MASK))
     {
         return;
     }
 
-    if (isInterruptQueueEmpty())
+    if (0 == interruptTable)
     {
         return;
     }
@@ -729,6 +785,13 @@ static bool doStackUtils(uint8_t stackVari, uint8_t regsel)
     switch (stackVari)
     {
         case OP_CODE_STCK_PUSH_VARI:
+            // Check for memory violation
+            if (false == MEMBOUND_CAN_WRITE(stackBase + stackPointer, regSize[regsel]))
+            {
+                enqueueCriticalInterrupt(INTERRUPT_CODE_MEMORY_VIOLATION);
+                return true;
+            }
+            // Push
             switch(regSize[regsel])
             {
                 case 4:
@@ -743,11 +806,19 @@ static bool doStackUtils(uint8_t stackVari, uint8_t regsel)
             break;
 
         case OP_CODE_STCK_POP_VARI:
+            // Check for underflow
             if (stackPointer < regSize[regsel])
             {
                 stackUnderflow = true;
                 break;
             }
+            // Check for memory violation
+            if (false == MEMBOUND_CAN_READ(stackBase + stackPointer - regSize[regsel], regSize[regsel]))
+            {
+                enqueueCriticalInterrupt(INTERRUPT_CODE_MEMORY_VIOLATION);
+                return true;
+            }
+            // Pop
             switch(regSize[regsel])
             {
                 case 4:
@@ -762,6 +833,13 @@ static bool doStackUtils(uint8_t stackVari, uint8_t regsel)
             return true;
 
         case OP_CODE_STCK_PUSHALL_VARI:
+            // Check for memory violation
+            if (false == MEMBOUND_CAN_WRITE(stackBase + stackPointer, STACK_PUSHALL_SIZE))
+            {
+                enqueueCriticalInterrupt(INTERRUPT_CODE_MEMORY_VIOLATION);
+                return true;
+            }
+            // Pushall
             for (uint8_t i = 0; i < 8; i++)
             {
                 push32(getValFromRegsel(i));
@@ -770,11 +848,19 @@ static bool doStackUtils(uint8_t stackVari, uint8_t regsel)
             break;
 
         case OP_CODE_STCK_POPALL_VARI:
-            if (stackPointer < 33)
+            // Check for underflow
+            if (stackPointer < STACK_PUSHALL_SIZE)
             {
                 stackUnderflow = true;
                 break;
             }
+            // Check for memory violation
+            if (false == MEMBOUND_CAN_READ(stackBase + stackPointer - STACK_PUSHALL_SIZE, STACK_PUSHALL_SIZE))
+            {
+                enqueueCriticalInterrupt(INTERRUPT_CODE_MEMORY_VIOLATION);
+                return true;
+            }
+            // Popall
             flagsRegister = pop8();
             for (int8_t i = 7; i >= 0; i--)
             {
@@ -783,11 +869,19 @@ static bool doStackUtils(uint8_t stackVari, uint8_t regsel)
             return true;
 
         case OP_CODE_STCK_PEEK_VARI:
+            // Check for underflow
             if (stackPointer < regSize[regsel])
             {
                 stackUnderflow = true;
                 break;
             }
+            // Check for memory violation
+            if (false == MEMBOUND_CAN_READ(stackBase + stackPointer - regSize[regsel], regSize[regsel]))
+            {
+                enqueueCriticalInterrupt(INTERRUPT_CODE_MEMORY_VIOLATION);
+                return true;
+            }
+            // Peek
             switch(regSize[regsel])
             {
                 case 4:
@@ -802,16 +896,21 @@ static bool doStackUtils(uint8_t stackVari, uint8_t regsel)
             return true;
 
         case OP_CODE_STCK_RETURN_VARI:
+            // Check for underflow
             if (stackPointer < 4)
             {
                 stackUnderflow = true;
                 break;
             }
-            if (stackPointer >= 4)
+            // Check for memory violation
+            if (false == MEMBOUND_CAN_READ(stackBase + stackPointer - 4, 4))
             {
-                programCounter = pop32();
-                return false;
+                enqueueCriticalInterrupt(INTERRUPT_CODE_MEMORY_VIOLATION);
+                return true;
             }
+            // Return
+            programCounter = pop32();
+            return false;
     }
 
 
