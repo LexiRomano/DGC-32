@@ -350,3 +350,12 @@ G0: 0x1
 
 frame: 131
 G0: 0x30
+
+// Check BRLO
+frame: 136
+G0: 0x02
+G1: 0x1000
+
+frame: 137
+FL: 0b0100
+G0: 0x8888

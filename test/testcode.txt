@@ -139,6 +139,8 @@
     PUSH          G0            // frame 128
     MOVE          G0 0x30       // frame 131
 
+    BRAL          out1          // frame 132
+
 
 
 :sysCall1
@@ -158,3 +160,12 @@
 :critStack
     INTGPR        G0            // frame 123, 129
     INTFIN                      // frame 124, 130
+
+:out1
+    MOVE          G0 0x2        // frame 133
+    MOVE          G1 0x1000     // frame 134
+    COMP          G0 G1         // frame 135
+    BRLO          goodBrlo      // frame 136
+    MOVE          G0 0xFFFF     // no frame
+:goodBrlo
+    MOVE          G0 0x8888     // frame 137

@@ -762,9 +762,9 @@ static bool doStackUtils(uint8_t stackVari, uint8_t regsel)
             return true;
 
         case OP_CODE_STCK_PUSHALL_VARI:
-            for (uint8_t i = 0; i < 7; i++)
+            for (uint8_t i = 0; i < 8; i++)
             {
-                push32(getValFromRegsel(regsel));
+                push32(getValFromRegsel(i));
             }
             push8(flagsRegister);
             break;
@@ -775,11 +775,11 @@ static bool doStackUtils(uint8_t stackVari, uint8_t regsel)
                 stackUnderflow = true;
                 break;
             }
-            for (uint8_t i = 7; i < 0; i--)
+            flagsRegister = pop8();
+            for (int8_t i = 7; i >= 0; i--)
             {
-                push32(getValFromRegsel(regsel));
+                generalRegisters[i] = pop32();
             }
-            push8(flagsRegister);
             return true;
 
         case OP_CODE_STCK_PEEK_VARI:
@@ -1092,14 +1092,14 @@ static void run()
                 break;
 
             case OP_CODE_COMP_F2:
-                doCompare(getValFromRegsel(REGSEL_2_GET(instructionRegister)),
-                          getValFromRegsel(REGSEL_3_GET(instructionRegister)));
+                doCompare(getValFromRegsel(REGSEL_1_GET(instructionRegister)),
+                          getValFromRegsel(REGSEL_2_GET(instructionRegister)));
                 programCounter+=4;
                 break;
 
             case OP_CODE_COMP_F4:
                 memcpy(&argumentAugment, &(memory[programCounter + 4]), sizeof(argumentAugment));
-                doCompare(getValFromRegsel(REGSEL_2_GET(instructionRegister)),
+                doCompare(getValFromRegsel(REGSEL_1_GET(instructionRegister)),
                           argumentAugment);
                 programCounter+=8;
                 break;
