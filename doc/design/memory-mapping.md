@@ -16,32 +16,14 @@ Boot location at 0x00000000. Not much else to be said :P
 
 ## I/O: 0x00006000 : 0x00007FFF
 
+See `motherboard-and-device-managers.md` for more information.
+
 ### Device Registry: 0x00006000 : 0x000060FF
 
 32 entries, 8 bytes each
 
-```
-Device registry table format
-  0x01234567 89ABCDEF
-    \__/\__/ \______/
-     |   |       Device data location (4bytes)
-     |   Device data size (2bytes)
-     Device type (2bytes)
-```
-
-#### Device Types
-| ID   | Type        |
-| ---- | ----------- |
-| 0x00 | none        |
-| 0x01 | system info |
-| 0x02 | storage     |
-| 0x03 | graphical   |
-| 0x04 | timer       |
-| 0x05 | peripheral  |
-| 0xFF | table end   |
-
 ### Device Data: 0x00006100 : 0x00007FFF
 
-The contents of each device's data field will be defined by its respective specification. See doc/design/devices for included basic devices.
+The contents of each device's data field will be defined by its respective specification.
 
 ## General Use: 0x00008000 : 0xFFFFFFFF

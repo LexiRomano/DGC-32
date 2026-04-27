@@ -147,7 +147,7 @@ static bool parseArgs(int argc, char* argv[])
 }
 
 /*******************************************************************************
-* Initialize memory, read ROM.
+* Initialize memory, read ROM, start up motherboard.
 *******************************************************************************/
 static bool init()
 {
@@ -183,6 +183,8 @@ static bool init()
     }
 
     fclose(romFile);
+
+    mb_initDevices();
 
     return true;
 }
@@ -1274,12 +1276,13 @@ static void teardown()
     st_exit();
     #endif // SELF_TEST
 
+    mb_teardownDevices();
+
     if (NULL != memory)
     {
         free(memory);
         memory = NULL;
     }
-    
 }
 
 int main(int argc, char* argv[])

@@ -7,6 +7,8 @@
 #include <stdbool.h>
 #include <string.h>
 
+#include "motherboard.h"
+
 #ifdef SELF_TEST
 #include "selftest.h"
 #endif
