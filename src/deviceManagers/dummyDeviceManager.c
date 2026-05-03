@@ -1,6 +1,11 @@
 #include "deviceManagers/dummyDeviceManager.h"
 
-int initDummyDeviceManager(void *arg)
+void ddm_handleWrite(uint8_t deviceId, uint16_t deviceDataAddress, uint8_t numBytes, void *data)
+{
+
+}
+
+int ddm_initDeviceManager(void *arg)
 {
     threadArg_t myThreadData = {0};
 
@@ -9,6 +14,20 @@ int initDummyDeviceManager(void *arg)
 
     printf("%hhu: I'm alive!\n", myThreadData.managerId);
 
+    // Request initial devices
+
+    if (NEW_DEVICE_REQUEST_FAILED == dmi_requestNewDevice(myThreadData.managerId, 32))
+    {
+        *(myThreadData.semaphore) = dts_kill;
+        cnd_signal(myThreadData.wakeCondition);
+        printf("Could not initialize device\n");
+        return false;
+    }
+
+    // Bind the read handler
+    dmi_bindHandleWrite(myThreadData.managerId, ddm_handleWrite);
+
+    cnd_signal(myThreadData.wakeCondition);
     mtx_lock(myThreadData.mutex);
 
     while (true)
@@ -24,7 +43,7 @@ int initDummyDeviceManager(void *arg)
             case dts_kill:
                 printf("%hhu: Goodbye, cruel world!\n", myThreadData.managerId);
                 return 0;
-            case dts_write:
+            case dts_handleWrite:
             case dts_continue:
                 break;
         }

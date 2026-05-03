@@ -20,7 +20,7 @@ When an interrupt is triggered, the address of the previously executing program 
 | 0x01      | key pressed           |
 | 0x02      | key released          |
 | 0x03      | peripheral event      |
-| 0x04      | device table update   |
+| 0x04      | motherboard event     |
 | 0x05      | critical stack event* |
 | 0x06      | timer event           |
 | 0x07      | storage event         |
@@ -41,11 +41,11 @@ The parameter corresponds to the ascii of the key that was released.
 
 ### Peripheral Event (0x03)
 
-The parameter corresponds to the index of the device table entry from where the interrupt came from. Further information will be described by the specification of the originating peripheral.
+The 3 least signifigant bits corresponds to the device table entry from where the interrupt originates. The remainer are used as parameters from the peripheral device.
 
-### Device Table Update (0x04)
+### Motherboard Event (0x04)
 
-The parameter corresponds to the index of the device table entry that has changed. This can be either an addition or a deletion. 
+The parameter is defined by the spec of the motherboard.
 
 ### Critical Stack Event (0x05)
 
@@ -60,24 +60,15 @@ This interrupt is triggered when something in the stack experiences one of the f
 
 ### Timer Event (0x06)
 
-The parameter corresponds to the type of timer that triggered the event. More information may be found in the timer's device data.
+The 3 least signifigant bits corresponds to the device table entry from where the interrupt originates. The remainer are used as parameters from the timer device.
 
 ### Storage Event (0x07)
 
-This interrupt is triggered when one of the following events occur:
-
-| Parameter Value | Meaning                              |
-| --------------- | ------------------------------------ |
-| 0x00            | transfer complete                    |
-| 0x20            | transfer failed                      |
-| 0x30:70         | reserved                             |
-| 0x80:F0         | device specific                      |
-
-The index of the storage device from the device registry is inserted in bits 4:0 of the parameter.
+The 3 least signifigant bits corresponds to the device table entry from where the interrupt originates. The remainer are used as parameters from the storage device.
 
 ### Graphical Event (0x08)
 
-The parameter corresponds to the index of the device table entry from where the interrupt came from. Further information will be described by the specification of the originating graphical device.
+The 3 least signifigant bits corresponds to the device table entry from where the interrupt originates. The remainer are used as parameters from the graphical device.
 
 ### Memory Violation (0x09)
 

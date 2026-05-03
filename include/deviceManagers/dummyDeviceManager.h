@@ -9,6 +9,6 @@
 
 #include "deviceManagerInterface.h"
 
-int initDummyDeviceManager(void *arg);
+int ddm_initDeviceManager(void *arg);
 
 #endif //__DUMMY_DEVICE_MANAGER_H__

@@ -6,8 +6,8 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <string.h>
-
-#include "motherboard.h"
+// Included at the bottom since it requires memTransFP_t
+//#include "motherboard.h"
 
 #ifdef SELF_TEST
 #include "selftest.h"
@@ -155,9 +155,16 @@
 #define INTERRUPT_ARG_OFFSET 8
 #define INTERRUPT_CONSTRUCT(id, arg) ((uint16_t) (((id >> INTERRUPT_ARG_OFFSET) & INTERRUPT_ID_MASK) | (arg & INTERRUPT_ARG_MASK)))
 
-#define INTERRUPT_CODE_MEMORY_VIOLATION 0x0009
-#define INTERRULT_CODE_EMPTY_POP        0x0005
-#define INTERRUPT_CODE_CRITICAL_STACK   0x0105
+#define INTERRUPT_CODE_KEY_PRESSED         0x0001
+#define INTERRUPT_CODE_KEY_RELEASED        0x0002
+#define INTERRUPT_CODE_PERIPHERAL_EVENT    0x0003
+#define INTERRUPT_CODE_MOTHERBOARD_EVENT   0x0004
+#define INTERRUPT_CODE_EMPTY_POP           0x0005
+#define INTERRUPT_CODE_CRITICAL_STACK      0x0105
+#define INTERRUPT_CODE_TIMER_EVENT         0x0006
+#define INTERRUPT_CODE_STORAGE_EVENT       0x0007
+#define INTERRUPT_CODE_GRAPHICAL_EVENT     0x0008
+#define INTERRUPT_CODE_MEMORY_VIOLATION    0x0009
 
 #define STAT_REG_INT_IN_PROG_MASK 0b00000001
 #define STAT_REG_INT_SUS_MASK     0b00000010
@@ -183,12 +190,16 @@
 #define MEMBOUND_WRITE_START   MEMBOUND_DDAT_START
 #define MEMBOUND_WRITE_END     MEMBOUND_GEN_END
 
-#define MEMBOUND_CAN_READ(address, size)  (((address >= MEMBOUND_READ_1_START) && (address + size - 1 <= MEMBOUND_READ_1_END)) ||\
-                                           ((address >= MEMBOUND_READ_2_START) && (address + size - 1<= MEMBOUND_READ_2_END)))
-#define MEMBOUND_CAN_WRITE(address, size) ((address >= MEMBOUND_WRITE_START) && (address + size - 1 <= MEMBOUND_WRITE_END))
+#define MEMBOUND_CAN_READ(address, size)  (((address >= MEMBOUND_READ_1_START) && (((uint64_t) address) + size - 1 <= MEMBOUND_READ_1_END)) ||\
+                                           ((address >= MEMBOUND_READ_2_START) && (address + size - 1 <= MEMBOUND_READ_2_END)))
+#define MEMBOUND_CAN_WRITE(address, size) ((address >= MEMBOUND_WRITE_START) && (((uint64_t) address) + size - 1 <= MEMBOUND_WRITE_END))
 
 // Misc
 #define STACK_OVERFLOW_THRESHOLD 34
 #define STACK_PUSHALL_SIZE 33
+
+typedef void (*memTransFP_t)(uint32_t, uint8_t, void*);
+typedef void (*interruptFP_t)(uint16_t);
+#include "motherboard.h"
 
 #endif // __DGC32_H__

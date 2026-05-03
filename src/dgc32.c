@@ -1,8 +1,7 @@
 #include "dgc32.h"
 
-static uint8_t *memory      = NULL;
-static char    *romLocation = NULL;
-#define DEFAULT_ROM_LOCATION "./rom.bin"
+static uint8_t *memory               = NULL;
+static mtx_t    interruptAccessMutex = {0};
 
 // Exposed registers
 static uint32_t generalRegisters[8]    = {0};
@@ -12,7 +11,6 @@ static uint16_t stackSize              = 0;
 static uint16_t stackPointer           = 0;
 static uint32_t interruptTable         = 0;
 static uint8_t  flagsRegister          = 0;
-
 
 // Internal registers
 static uint32_t programCounter         = 0;
@@ -112,17 +110,54 @@ uint8_t criticalInterruptIDs[] =
 };
 
 /*******************************************************************************
-* Parse command line arguments.
+* Motherboard memory access functions
 *******************************************************************************/
-static bool parseArgs(int argc, char* argv[])
+static void readMemForMB(uint32_t address, uint8_t numBytes, void *data)
 {
-    uint8_t index = 1;
+    memcpy(data, &(memory[address]), numBytes);
+}
 
+static void writeMemForMB(uint32_t address, uint8_t numBytes, void *data)
+{
+    memcpy(&(memory[address]), data, numBytes);
+}
+
+/*******************************************************************************
+* Enqueues an interrupt. Accessable by the motherboard
+*******************************************************************************/
+static inline void enqueueInterrupt(uint16_t interrupt)
+{
+    mtx_lock(&interruptAccessMutex);
+
+    memcpy(&(memory[INTERRUPT_QUEUE_BASE + interruptHead]), &interrupt, sizeof(interrupt));
+
+    interruptHead = (interruptHead + 2) % INTERRUPT_QUEUE_SIZE;
+
+    mtx_unlock(&interruptAccessMutex);
+}
+
+
+/*******************************************************************************
+* Parse args, initialize memory, read ROM, start up motherboard.
+*******************************************************************************/
+static bool init(int argc, char* argv[])
+{
+    char              *romFileName                                         = NULL;
+    FILE              *romFile                                             = NULL;
+    FILE              *testFileExists                                      = NULL;
+    char              *storageDeviceFileNames[MAX_INITIAL_STORAGE_DEVICES] = {0};
+    externalFileInfo_t motherboardInitParams                               = {0};
+    uint8_t            argumentIndex                                       = 1;
+
+    // Init the interrupt access mutex
+    mtx_init(&interruptAccessMutex, mtx_plain);
+
+    // Parsing command line arguments
     #ifdef SELF_TEST
 
-    if (index < argc)
+    if (argumentIndex < argc)
     {
-        if (false == st_setTestFile(argv[index]))
+        if (false == st_setTestFile(argv[argumentIndex]))
         {
             return false;
         }
@@ -133,27 +168,34 @@ static bool parseArgs(int argc, char* argv[])
         return false;
     }
 
-    index++;
+    argumentIndex++;
 
     #endif // SELF_TEST
 
-    if (index < argc)
+    if (argumentIndex < argc)
     {
         // Rom
-        romLocation = argv[index];
+        romFileName = argv[argumentIndex++];
+    }
+    else
+    {
+        printf("ROM file must be specified\n");
+        return false;
     }
 
-    return true;
-}
+    for (uint8_t i = 0; i < MAX_INITIAL_STORAGE_DEVICES && argumentIndex < argc; i++)
+    {
+        storageDeviceFileNames[i] = argv[argumentIndex];
+        argumentIndex++;
+    }
 
-/*******************************************************************************
-* Initialize memory, read ROM, start up motherboard.
-*******************************************************************************/
-static bool init()
-{
-    FILE *romFile = NULL;
+    if (argc > argumentIndex)
+    {
+        printf("Too many arguments, exceded maximum of %d storage devices at startup\n", MAX_INITIAL_STORAGE_DEVICES);
+        return false;
+    }
 
-    // Reading ROM.
+    // Init memory
     memory = malloc(MEMORY_SIZE * sizeof(uint8_t));
 
     if (NULL == memory)
@@ -162,11 +204,12 @@ static bool init()
         return false;
     }
 
-    romFile = fopen(romLocation == NULL ? DEFAULT_ROM_LOCATION : romLocation, "rb");
+    // Load ROM
+    romFile = fopen(romFileName, "rb");
 
     if (NULL == romFile)
     {
-        printf("Could not open ROM file at \"%s\"\n", romLocation == NULL ? DEFAULT_ROM_LOCATION : romLocation);
+        printf("Could not open ROM file at \"%s\"\n", romFileName);
         free(memory);
         memory = NULL;
         return false;
@@ -184,15 +227,40 @@ static bool init()
 
     fclose(romFile);
 
-    mb_initDevices();
+    // Preparing motherboard arguments
+    motherboardInitParams.romFileName = romFileName;
 
-    return true;
+    for (uint8_t i = 0; i < MAX_INITIAL_STORAGE_DEVICES; i++)
+    {
+        if (NULL == storageDeviceFileNames[i])
+        {
+            break;
+        }
+
+        testFileExists = fopen(storageDeviceFileNames[i], "r");
+
+        if (NULL == testFileExists)
+        {
+            printf("Could not open storage device file at \"%s\"\n", storageDeviceFileNames[i]);
+            return false;
+        }
+
+        fclose(testFileExists);
+        testFileExists = NULL;
+    }
+
+    // Initialize the motherboard
+    return mb_init(&motherboardInitParams, readMemForMB, writeMemForMB, enqueueInterrupt);
 }
 
 static inline void enqueueCriticalInterrupt(uint16_t interrupt)
 {
+    mtx_lock(&interruptAccessMutex);
+
     interruptTail = (interruptTail - 2) % INTERRUPT_QUEUE_SIZE;
     memcpy(&(memory[INTERRUPT_QUEUE_BASE + interruptTail]), &interrupt, sizeof(interrupt));
+
+    mtx_unlock(&interruptAccessMutex);
 }
 
 static inline void transferRegToReg(uint8_t toRegsel, uint8_t fromRegsel)
@@ -515,13 +583,6 @@ static inline uint32_t getValFromRegsel(uint8_t regsel)
     return 0;
 }
 
-static inline void enqueueInterrupt(uint16_t interrupt)
-{
-    memcpy(&(memory[INTERRUPT_QUEUE_BASE + interruptHead]), &interrupt, sizeof(interrupt));
-
-    interruptHead = (interruptHead + 2) % INTERRUPT_QUEUE_SIZE;
-}
-
 static inline void peekInterrupt(uint16_t *interrupt)
 {
     memcpy(interrupt, &(memory[INTERRUPT_QUEUE_BASE + interruptTail]), sizeof(*interrupt));
@@ -585,18 +646,23 @@ static void detectInterrupt()
 {
     bool isCriticalInterrupt = false;
 
+    mtx_lock(&interruptAccessMutex);
+
     if (isInterruptQueueEmpty())
     {
+        mtx_unlock(&interruptAccessMutex);
         return;
     }
 
     if (0 != (statusRegister & STAT_REG_INT_IN_PROG_MASK))
     {
+        mtx_unlock(&interruptAccessMutex);
         return;
     }
 
     if (0 == interruptTable)
     {
+        mtx_unlock(&interruptAccessMutex);
         return;
     }
 
@@ -614,10 +680,13 @@ static void detectInterrupt()
     if (false == isCriticalInterrupt &&
         ((statusRegister & STAT_REG_INT_SUS_MASK) != 0))
     {
+        mtx_unlock(&interruptAccessMutex);
         return;
     }
 
     dequeueInterrupt(&currentInterrupt);
+
+    mtx_unlock(&interruptAccessMutex);
 
     interruptReturnAddress = programCounter;
     
@@ -924,7 +993,7 @@ static bool doStackUtils(uint8_t stackVari, uint8_t regsel)
     }
     else if (stackUnderflow)
     {
-        enqueueCriticalInterrupt(INTERRULT_CODE_EMPTY_POP);
+        enqueueCriticalInterrupt(INTERRUPT_CODE_EMPTY_POP);
     }
 
     return true;
@@ -1276,7 +1345,7 @@ static void teardown()
     st_exit();
     #endif // SELF_TEST
 
-    mb_teardownDevices();
+    mb_teardown();
 
     if (NULL != memory)
     {
@@ -1293,13 +1362,7 @@ int main(int argc, char* argv[])
     printf("Self test mode\n");
     #endif // SELF_TEST
 
-    if (false == parseArgs(argc, argv))
-    {
-        teardown();
-        return -1;
-    }
-
-    if (false == init())
+    if (false == init(argc, argv))
     {
         teardown();
         return -1;
