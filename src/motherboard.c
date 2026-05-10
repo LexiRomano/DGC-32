@@ -26,7 +26,7 @@ static mtx_t        deviceRegistryMutex                = {0};
 thrd_start_t managerInitFunctions[NUM_DEVICE_MANAGERS] = 
 {
     ddm_initDeviceManager,
-    ddm_initDeviceManager,
+    pr_initDeviceManager,
     ddm_initDeviceManager,
     ddm_initDeviceManager,
     ddm_initDeviceManager
@@ -34,14 +34,17 @@ thrd_start_t managerInitFunctions[NUM_DEVICE_MANAGERS] =
 deviceTypes_e managerDeviceType[NUM_DEVICE_MANAGERS] = 
 {
     dt_none,
-    dt_none,
+    dt_peripheral,
     dt_none,
     dt_none,
     dt_none
 };
 
+// GLFW variables
+glfwInfo_t *glfwInfo = NULL;
+
 // Misc
-static bool doneStartup = false;
+static bool powerState = false;
 
 static bool isInterruptTypeAllowed(uint8_t deviceId, interruptTypes_e interruptType)
 {
@@ -301,7 +304,7 @@ uint8_t dmi_requestNewDevice(uint8_t managerId, uint16_t size)
     mtx_unlock(&deviceRegistryMutex);
 
     // Trigger device table update interrupt
-    if (doneStartup)
+    if (powerState)
     {
         enqueueInterrupt(INTERRUPT_CODE_MOTHERBOARD_EVENT + (newDeviceId << 8));
     }
@@ -480,7 +483,7 @@ bool dmi_bindHandleWrite(uint8_t managerId, handleWriteFP_t handleWriteFunction)
 }
 
 /*******************************************************************************
-* Interface for the processor to handle writes to device data
+* Interface for the processor to handle writes to device data.
 *******************************************************************************/
 void mb_writeToDeviceData(uint32_t address, uint8_t size, void *data)
 {
@@ -537,6 +540,9 @@ void mb_writeToDeviceData(uint32_t address, uint8_t size, void *data)
     mtx_unlock(&deviceRegistryMutex);
 }
 
+/*******************************************************************************
+* Waker thread to check fo if device managers need to be woken up.
+*******************************************************************************/
 static int wakerThreadFunction(void *arg)
 {
     while (wakerThreadLive)
@@ -558,15 +564,30 @@ static int wakerThreadFunction(void *arg)
 
             cnd_signal(&(managerThreadWake[i]));
         }
+
+        glfwPollEvents();
+
+        if (glfwWindowShouldClose(glfwInfo->window))
+        {
+            powerState = false;
+        }
     }
 
     return 0;
 }
 
 /*******************************************************************************
+* Interface for the processor to query if the power is still on.
+*******************************************************************************/
+bool mb_powerState()
+{
+    return powerState;
+}
+
+/*******************************************************************************
 * Initialize the motherboard and all attached device managers.
 *******************************************************************************/
-bool mb_init(externalFileInfo_t *externalFileInfo, memTransFP_t read, memTransFP_t write, interruptFP_t interrupt)
+bool mb_init(externalFileInfo_t *externalFileInfo, glfwInfo_t *glfw, memTransFP_t read, memTransFP_t write, interruptFP_t interrupt)
 {
     threadArg_t *tmpThreadArg = NULL;
 
@@ -574,8 +595,9 @@ bool mb_init(externalFileInfo_t *externalFileInfo, memTransFP_t read, memTransFP
     readMem          = read;
     writeMem         = write;
     enqueueInterrupt = interrupt;
+    glfwInfo         = glfw;
 
-    doneStartup = false;
+    powerState = false;
 
     mtx_init(&deviceRegistryMutex, mtx_plain);
 
@@ -599,7 +621,10 @@ bool mb_init(externalFileInfo_t *externalFileInfo, memTransFP_t read, memTransFP
         tmpThreadArg->wakeCondition = &(managerThreadWake[i]);
         tmpThreadArg->semaphore     = &(managerThreadSemaphore[i]);
         tmpThreadArg->managerId     = i;
+
         memcpy(&(tmpThreadArg->externalFileInfo), externalFileInfo, sizeof(externalFileInfo_t));
+
+        memcpy(&(tmpThreadArg->glfwInfo), glfwInfo, sizeof(glfwInfo_t));
 
         managerThreads[i] = calloc(1, sizeof(thrd_t));
 
@@ -640,7 +665,7 @@ bool mb_init(externalFileInfo_t *externalFileInfo, memTransFP_t read, memTransFP
     thrd_create(wakerThread, wakerThreadFunction, NULL);
 
 
-    doneStartup = true;
+    powerState = true;
 
     return true;
 }

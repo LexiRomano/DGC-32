@@ -4,6 +4,7 @@
 #include <threads.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <GLFW/glfw3.h>
 
 #define MAX_INITIAL_STORAGE_DEVICES 2
 #define NEW_DEVICE_REQUEST_FAILED 255
@@ -46,11 +47,17 @@ typedef struct
 
 typedef struct
 {
+    GLFWwindow *window;
+} glfwInfo_t;
+
+typedef struct
+{
     mtx_t                   *mutex;
     cnd_t                   *wakeCondition;
     deviceThreadSemaphore_e *semaphore;
     uint8_t                  managerId;
     externalFileInfo_t       externalFileInfo;
+    glfwInfo_t               glfwInfo;
 } threadArg_t;
 
 typedef void (*handleWriteFP_t)(uint8_t, uint16_t, uint8_t, void*);

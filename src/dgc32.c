@@ -109,6 +109,9 @@ uint8_t criticalInterruptIDs[] =
     0x09  // Memory violation
 };
 
+// GLFW data
+static glfwInfo_t glfwInfo = {0};
+
 /*******************************************************************************
 * Motherboard memory access functions
 *******************************************************************************/
@@ -249,8 +252,26 @@ static bool init(int argc, char* argv[])
         testFileExists = NULL;
     }
 
+    // Setup GLFW
+    if (!glfwInit())
+    {
+        printf("Failed to initialze GLFW\n");
+        // Initialization failed
+        return false;
+    }
+
+    glfwInfo.window = glfwCreateWindow(960, 540, "DGC-32", NULL, NULL);
+
+    if (NULL == glfwInfo.window)
+    {
+        printf("Failed to create GLFW window\n");
+        return false;
+    }
+
+    glfwMakeContextCurrent(glfwInfo.window);
+
     // Initialize the motherboard
-    return mb_init(&motherboardInitParams, readMemForMB, writeMemForMB, enqueueInterrupt);
+    return mb_init(&motherboardInitParams, &glfwInfo, readMemForMB, writeMemForMB, enqueueInterrupt);
 }
 
 static inline void enqueueCriticalInterrupt(uint16_t interrupt)
@@ -1161,7 +1182,7 @@ static void run()
     st_defineStartTime();
     #endif //SELFTEST
 
-    while (true)
+    while (mb_powerState())
     {
         detectInterrupt();
 
@@ -1358,6 +1379,13 @@ static void teardown()
         free(memory);
         memory = NULL;
     }
+
+    if (NULL != glfwInfo.window)
+    {
+        glfwDestroyWindow(glfwInfo.window);
+    }
+
+    glfwTerminate();
 }
 
 int main(int argc, char* argv[])

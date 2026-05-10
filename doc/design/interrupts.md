@@ -33,11 +33,11 @@ When an interrupt is triggered, the address of the previously executing program 
 
 ### Key Pressed (0x01)
 
-The parameter corresponds to the ascii of the key that was pressed.
+The parameter corresponds to the scancode of the key that was pressed.
 
 ### Key Released (0x02)
 
-The parameter corresponds to the ascii of the key that was released.
+The parameter corresponds to the scancode of the key that was released.
 
 ### Peripheral Event (0x03)
 

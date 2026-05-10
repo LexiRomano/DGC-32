@@ -6,6 +6,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <string.h>
+#include <GLFW/glfw3.h>
 // Included at the bottom since it requires memTransFP_t
 //#include "motherboard.h"
 
