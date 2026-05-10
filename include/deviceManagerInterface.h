@@ -37,7 +37,13 @@ typedef enum
     dts_continue,
     dts_handleWrite,
     dts_kill
-} deviceThreadSemaphore_e;
+} deviceThreadSemaphoreWakeReason_e;
+
+typedef struct
+{
+    deviceThreadSemaphoreWakeReason_e wakeReason;
+    uint8_t                           deviceId;
+} deviceThreadSemaphore_t;
 
 typedef struct
 {
@@ -54,7 +60,7 @@ typedef struct
 {
     mtx_t                   *mutex;
     cnd_t                   *wakeCondition;
-    deviceThreadSemaphore_e *semaphore;
+    deviceThreadSemaphore_t *semaphore;
     uint8_t                  managerId;
     externalFileInfo_t       externalFileInfo;
     glfwInfo_t               glfwInfo;

@@ -70,6 +70,12 @@ static int glfwKeyTokensForDboard[][2] =
    {GLFW_KEY_RIGHT_ALT,     DBOARD_SCANCODE_RALT}
 };
 
+static uint8_t derialDeviceId                                  = NEW_DEVICE_REQUEST_FAILED;
+static uint8_t derialOutboundBuffer[DERIAL_OUTBOUND_BUF_SIZE]  = {0};
+static uint8_t derialOutboundBufferHead                        = 0;
+static uint8_t derialOutboundBufferTail                        = 0;
+
+
 static void pr_dboardHandleKeyPress(GLFWwindow* window, int key, int scancode, int action, int mods)
 {
     if (GLFW_REPEAT == action ||
@@ -89,6 +95,17 @@ static void pr_dboardHandleKeyPress(GLFWwindow* window, int key, int scancode, i
             dmi_enqueueInterrupt(dboardDeviceId, it_keyReleased, dboardScancodeMappings[scancode]);
         }
     }
+}
+
+static void pr_derialHandleWrite()
+{
+    while (derialOutboundBufferHead != derialOutboundBufferTail)
+    {
+        printf("%c", derialOutboundBuffer[derialOutboundBufferTail]);
+        derialOutboundBufferTail = (derialOutboundBufferTail + 1) % DERIAL_OUTBOUND_BUF_SIZE;
+    }
+
+    fflush(stdout);
 }
 
 static bool pr_initDboardScancodeMappings()
@@ -128,9 +145,19 @@ static void pr_handleWrite(uint8_t deviceId, uint16_t deviceDataAddress, uint8_t
     if (dboardDeviceId == deviceId)
     {
         (void) dmi_writeDeviceData(dboardDeviceId, 0, 2, (uint8_t[]) {DBOARD_PERIPHERAL_TYPE_ID,
-                                                                      DBOARD_PERIPHERAL_PROT_ID});
+                                                                      DBOARD_KEYBOARD_PROT_ID});
 
         return;
+    }
+    else if (derialDeviceId == deviceId)
+    {
+        if (deviceDataAddress == DERIAL_OUTBOUND_ADDRESS &&
+            numBytes == 1)
+        {
+            derialOutboundBuffer[derialOutboundBufferHead] = *((uint8_t*) data);
+
+            derialOutboundBufferHead = (derialOutboundBufferHead + 1) % DERIAL_OUTBOUND_BUF_SIZE;
+        }
     }
 }
 
@@ -143,14 +170,27 @@ int pr_initDeviceManager(void *arg)
 
     // Request initial devices
 
+    // Dboard
     dboardDeviceId = dmi_requestNewDevice(myThreadData.managerId, DBOARD_DDAT_SIZE);
 
     if (NEW_DEVICE_REQUEST_FAILED == dboardDeviceId ||
         false == dmi_writeDeviceData(dboardDeviceId, 0, 2, (uint8_t[]) {DBOARD_PERIPHERAL_TYPE_ID,
-                                                                        DBOARD_PERIPHERAL_PROT_ID})||
+                                                                        DBOARD_KEYBOARD_PROT_ID})||
         false == pr_initDboardScancodeMappings())
     {
-        *(myThreadData.semaphore) = dts_kill;
+        myThreadData.semaphore->wakeReason = dts_kill;
+        cnd_signal(myThreadData.wakeCondition);
+        return false;
+    }
+
+    // Derial
+    derialDeviceId = dmi_requestNewDevice(myThreadData.managerId, DERIAL_DDAT_SIZE);
+
+    if (NEW_DEVICE_REQUEST_FAILED == derialDeviceId ||
+        false == dmi_writeDeviceData(derialDeviceId, 0, 2, (uint8_t[]) {DERIAL_PERIPHERAL_TYPE_ID,
+                                                                        DERIAL_SERIAL_PROT_ID}))
+    {
+        myThreadData.semaphore->wakeReason = dts_kill;
         cnd_signal(myThreadData.wakeCondition);
         return false;
     }
@@ -167,16 +207,21 @@ int pr_initDeviceManager(void *arg)
     {
         cnd_wait(myThreadData.wakeCondition, myThreadData.mutex);
 
-        switch (*(myThreadData.semaphore))
+        switch (myThreadData.semaphore->wakeReason)
         {
             case dts_kill:
                 return 0;
             case dts_handleWrite:
+                if (myThreadData.semaphore->deviceId == derialDeviceId)
+                {
+                    pr_derialHandleWrite();
+                }
+                break;
             case dts_continue:
                 break;
         }
 
 
-        *(myThreadData.semaphore) = dts_continue;
+        myThreadData.semaphore->wakeReason = dts_continue;
     }
 }

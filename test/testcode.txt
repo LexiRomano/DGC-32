@@ -192,6 +192,7 @@
     MOVE          G0 0x8888     // frame 168
     STOR-ABS      G1 0x6100     // frame 169
     MOVE          G0 0x9999     // frame 170
+    BRAL          continue      // frame 171
 
 :memv
     MOVE          G0 0xFFFF     // frame 142, 146, 150,
@@ -199,3 +200,11 @@
 
     INTFIN                      // frame 143, 147, 151,
                                 // 157, 163, 167
+
+:continue
+    MOVE          OA 0x8000     // frame 172
+    MOVE          G0 0x1234     // frame 173
+    STOR-OA       G0 2          // frame 174
+    LOAD-OA       OB 2          // frame 175
+    MOVE          OB 0x8000     // frame 176
+    LOAD-OB       G1 2          // frame 177

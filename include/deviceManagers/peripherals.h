@@ -12,7 +12,7 @@
 // Dboard
 #define DBOARD_DDAT_SIZE 2
 #define DBOARD_PERIPHERAL_TYPE_ID 0x4B
-#define DBOARD_PERIPHERAL_PROT_ID 0x01
+#define DBOARD_KEYBOARD_PROT_ID   0x01
 
 #define DBOARD_SCANCODE_A             0x00
 #define DBOARD_SCANCODE_B             0x01
@@ -79,6 +79,15 @@
 #define DBOARD_SCANCODE_ESC           0x3E
 
 #define DBOARD_SCANCODE_NONE          0xFF
+
+// Derial
+#define DERIAL_DDAT_SIZE          4
+#define DERIAL_PERIPHERAL_TYPE_ID 0x53
+#define DERIAL_SERIAL_PROT_ID     0x01
+#define DERIAL_INBOUND_ADDRESS    2
+#define DERIAL_OUTBOUND_ADDRESS   3
+
+#define DERIAL_OUTBOUND_BUF_SIZE  8
 
 int pr_initDeviceManager(void *arg);
 

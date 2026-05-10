@@ -16,7 +16,7 @@ int ddm_initDeviceManager(void *arg)
 
     if (NEW_DEVICE_REQUEST_FAILED == dmi_requestNewDevice(myThreadData.managerId, 32))
     {
-        *(myThreadData.semaphore) = dts_kill;
+        myThreadData.semaphore->wakeReason = dts_kill;
         cnd_signal(myThreadData.wakeCondition);
         return false;
     }
@@ -31,7 +31,7 @@ int ddm_initDeviceManager(void *arg)
     {
         cnd_wait(myThreadData.wakeCondition, myThreadData.mutex);
 
-        switch (*(myThreadData.semaphore))
+        switch (myThreadData.semaphore->wakeReason)
         {
             case dts_kill:
                 return 0;
@@ -40,6 +40,6 @@ int ddm_initDeviceManager(void *arg)
                 break;
         }
 
-        *(myThreadData.semaphore) = dts_continue;
+        myThreadData.semaphore->wakeReason = dts_continue;
     }
 }

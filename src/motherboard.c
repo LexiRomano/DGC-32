@@ -4,13 +4,14 @@
 static thrd_t                 *managerThreads[NUM_DEVICE_MANAGERS]              = {0};
 static mtx_t                   managerThreadMutex[NUM_DEVICE_MANAGERS]          = {0};
 static cnd_t                   managerThreadWake[NUM_DEVICE_MANAGERS]           = {0};
-static deviceThreadSemaphore_e managerThreadSemaphore[NUM_DEVICE_MANAGERS]      = {0};
-static bool                    managerWakerTodo[NUM_DEVICE_MANAGERS]            = {0};
+static deviceThreadSemaphore_t managerThreadSemaphore[NUM_DEVICE_MANAGERS]      = {0};
 static handleWriteFP_t         managerHandleWriteFunctions[NUM_DEVICE_MANAGERS] = {0};
 
 // Waker thread infrastructure
-static thrd_t *wakerThread     = NULL;
-static bool    wakerThreadLive = false;
+static thrd_t *wakerThread                = NULL;
+static bool    wakerThreadLive            = false;
+static bool    wakerTodo[MAX_NUM_DEVICES] = {0};
+
 
 // CPU-owned read/write functions for general use memory
 static memTransFP_t  writeMem         = NULL;
@@ -298,7 +299,7 @@ uint8_t dmi_requestNewDevice(uint8_t managerId, uint16_t size)
 
     if (isAtEndOfTable)
     {
-        writeMem(MEMBOUND_DREG_START + (newDeviceId * 8) + 6, 1, (uint8_t[]) {DEVICE_TABLE_END_MARKER});
+        writeMem(MEMBOUND_DREG_START + (newDeviceId * 8) + 9, 1, (uint8_t[]) {DEVICE_TABLE_END_MARKER});
     }
 
     mtx_unlock(&deviceRegistryMutex);
@@ -502,7 +503,6 @@ void mb_writeToDeviceData(uint32_t address, uint8_t size, void *data)
         enqueueInterrupt(INTERRUPT_CODE_MOTHERBOARD_EVENT + 0b00001000);
         return;
     }
-
     mtx_lock(&deviceRegistryMutex);
     for (mb_device_t *p = firstDeviceInMem; NULL != p; p = p->nextInMem)
     {
@@ -513,7 +513,7 @@ void mb_writeToDeviceData(uint32_t address, uint8_t size, void *data)
             break;
         }
 
-        if (address + size - 1 > p->startLocation + p->size - 1)
+        if (address < p->startLocation)
         {
             break;
         }
@@ -522,7 +522,7 @@ void mb_writeToDeviceData(uint32_t address, uint8_t size, void *data)
     if (NULL == foundDevice)
     {
         // Invalid memory region
-        enqueueInterrupt(INTERRUPT_CODE_MOTHERBOARD_EVENT + 0b00001000);
+        enqueueInterrupt(INTERRUPT_CODE_MOTHERBOARD_EVENT + (0b00001000 << 8));
         mtx_unlock(&deviceRegistryMutex);
         return;
     }
@@ -535,7 +535,7 @@ void mb_writeToDeviceData(uint32_t address, uint8_t size, void *data)
                                                             data);
     }
 
-    managerWakerTodo[foundDevice->managerId] = true;
+    wakerTodo[foundDevice->deviceId] = true;
 
     mtx_unlock(&deviceRegistryMutex);
 }
@@ -545,32 +545,38 @@ void mb_writeToDeviceData(uint32_t address, uint8_t size, void *data)
 *******************************************************************************/
 static int wakerThreadFunction(void *arg)
 {
+    uint8_t managerId = 0;
+
     while (wakerThreadLive)
     {
         thrd_yield();
 
+        if (glfwWindowShouldClose(glfwInfo->window))
+        {
+            powerState = false;
+            return 0;
+        }
+
         for (uint8_t i = 0; i < MAX_NUM_DEVICES; i++)
         {
-            if (false == managerWakerTodo[i])
+            if (false == wakerTodo[i])
             {
                 continue;
             }
 
-            managerWakerTodo[i] = false;
+            wakerTodo[i] = false;
 
-            mtx_lock(&(managerThreadMutex[i]));
-            managerThreadSemaphore[i] = dts_handleWrite;
-            mtx_unlock(&(managerThreadMutex[i]));
+            managerId = deviceMappingData[i]->managerId;
 
-            cnd_signal(&(managerThreadWake[i]));
+            mtx_lock(&(managerThreadMutex[managerId]));
+            managerThreadSemaphore[managerId].wakeReason = dts_handleWrite;
+            managerThreadSemaphore[managerId].deviceId   = i;
+            mtx_unlock(&(managerThreadMutex[managerId]));
+
+            cnd_signal(&(managerThreadWake[managerId]));
         }
 
         glfwPollEvents();
-
-        if (glfwWindowShouldClose(glfwInfo->window))
-        {
-            powerState = false;
-        }
     }
 
     return 0;
@@ -615,7 +621,7 @@ bool mb_init(externalFileInfo_t *externalFileInfo, glfwInfo_t *glfw, memTransFP_
         mtx_init(&(managerThreadMutex[i]), mtx_plain);
         cnd_init(&(managerThreadWake[i]));
 
-        managerThreadSemaphore[i] = dts_continue;
+        managerThreadSemaphore[i].wakeReason = dts_continue;
 
         tmpThreadArg->mutex         = &(managerThreadMutex[i]);
         tmpThreadArg->wakeCondition = &(managerThreadWake[i]);
@@ -646,10 +652,10 @@ bool mb_init(externalFileInfo_t *externalFileInfo, glfwInfo_t *glfw, memTransFP_
         // Check the success of the manager's initialization
         if (NULL == managerHandleWriteFunctions[i])
         {
-            managerThreadSemaphore[i] = dts_kill;
+            managerThreadSemaphore[i].wakeReason = dts_kill;
         }
 
-        if (dts_kill == managerThreadSemaphore[i])
+        if (dts_kill == managerThreadSemaphore[i].wakeReason)
         {
             printf("Failed to initialize device[%hhu]\n", i);
             mtx_unlock(&(managerThreadMutex[i]));
@@ -684,7 +690,7 @@ void mb_teardown()
         if (NULL != managerThreads[i])
         {
             mtx_lock(&(managerThreadMutex[i]));
-            managerThreadSemaphore[i] = dts_kill;
+            managerThreadSemaphore[i].wakeReason = dts_kill;
             mtx_unlock(&(managerThreadMutex[i]));
 
             cnd_signal(&(managerThreadWake[i]));

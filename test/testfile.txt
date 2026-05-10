@@ -405,7 +405,7 @@ G0: 0xFFFF
 frame: 164
 G0: 0x7777
 
-// Check memory violation, write betweel DREG and DDAT
+// Check memory violation, write between DREG and DDAT
 frame: 166
 G0: 0xFFFF
 
@@ -416,3 +416,18 @@ G0: 0x8888
 // Check no memory violation, write to start of DDAT
 frame: 170
 G0: 0x9999
+
+
+// Check LOAD-OA into OB
+frame: 175
+G0: 0x1234
+OA: 0x8000
+OB: 0x1234
+MEM: 0x00008002 0x34
+MEM: 0x00008003 0x12
+MEM: 0x00008004 0x00
+MEM: 0x00008005 0x00
+
+// Check LOAD-OB into G1
+frame: 177
+G1: 0x1234

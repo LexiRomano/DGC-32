@@ -1,6 +1,6 @@
 # Dboard
 
-A d-grade keyboard manager
+A d-grade keyboard manager. Managed by a peripheral device manager
 
 ## Memory map
 

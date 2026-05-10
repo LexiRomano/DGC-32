@@ -498,17 +498,18 @@ static void transferRegToMem(uint32_t toAddress, uint8_t fromRegsel, uint8_t ins
                 case INS_AUG_WORD_SIZE_4:
                 case INS_AUG_WORD_SIZE_INVALID:
                     memcpy(&(memory[toAddress]), &buf32, sizeof(uint32_t));
+                    mb_writeToDeviceData(toAddress, 4, &(memory[toAddress]));
                     break;
                 case INS_AUG_WORD_SIZE_2:
                     buf16 = (uint16_t) buf32 & 0xFFFF;
                     memcpy(&(memory[toAddress]), &buf16, sizeof(uint16_t));
+                    mb_writeToDeviceData(toAddress, 2, &(memory[toAddress]));
                     break;
                 case INS_AUG_WORD_SIZE_1:
                     buf8 = (uint8_t) buf32 & 0xFF;
                     memcpy(&(memory[toAddress]), &buf8, sizeof(uint8_t));
+                    mb_writeToDeviceData(toAddress, 1, &(memory[toAddress]));
             }
-
-            mb_writeToDeviceData(toAddress, 4, &(memory[toAddress]));
             
             return;
         case 2:
@@ -532,16 +533,17 @@ static void transferRegToMem(uint32_t toAddress, uint8_t fromRegsel, uint8_t ins
                 case INS_AUG_WORD_SIZE_INVALID:
                     buf32 = (uint32_t) buf16;
                     memcpy(&(memory[toAddress]), &buf32, sizeof(uint32_t));
+                    mb_writeToDeviceData(toAddress, 4, &(memory[toAddress]));
                     break;
                 case INS_AUG_WORD_SIZE_2:
                     memcpy(&(memory[toAddress]), &buf16, sizeof(uint16_t));
+                    mb_writeToDeviceData(toAddress, 2, &(memory[toAddress]));
                     break;
                 case INS_AUG_WORD_SIZE_1:
                     buf8 = (uint8_t) buf16 & 0xFF;
                     memcpy(&(memory[toAddress]), &buf8, sizeof(uint8_t));
+                    mb_writeToDeviceData(toAddress, 1, &(memory[toAddress]));
             }
-
-            mb_writeToDeviceData(toAddress, 2, &(memory[toAddress]));
             
             return;
         case 1:
@@ -565,16 +567,17 @@ static void transferRegToMem(uint32_t toAddress, uint8_t fromRegsel, uint8_t ins
                 case INS_AUG_WORD_SIZE_INVALID:
                     buf32 = (uint32_t) buf8;
                     memcpy(&(memory[toAddress]), &buf32, sizeof(uint32_t));
+                    mb_writeToDeviceData(toAddress, 4, &(memory[toAddress]));
                     break;
                 case INS_AUG_WORD_SIZE_2:
                     buf16 = (uint16_t) buf8;
                     memcpy(&(memory[toAddress]), &buf16, sizeof(uint16_t));
+                    mb_writeToDeviceData(toAddress, 2, &(memory[toAddress]));
                     break;
                 case INS_AUG_WORD_SIZE_1:
                     memcpy(&(memory[toAddress]), &buf8, sizeof(uint8_t));
+                    mb_writeToDeviceData(toAddress, 1, &(memory[toAddress]));
             }
-
-            mb_writeToDeviceData(toAddress, 1, &(memory[toAddress]));
             
             return;
     }
