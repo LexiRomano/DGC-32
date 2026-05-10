@@ -8,6 +8,7 @@
 #define MAX_INITIAL_STORAGE_DEVICES 2
 #define NEW_DEVICE_REQUEST_FAILED 255
 #define DEVICE_TABLE_END_MARKER 0xFF
+#define DEVICE_TALBE_EMPTY_MARKER 0
 
 typedef enum
 {
@@ -66,6 +67,7 @@ bool dmi_bindHandleWrite(uint8_t deviceHandlerId, handleWriteFP_t handleWriteFun
 
 // Functions to implement:
 //     void xx_handleWrite(uint8_t deviceId, uint16_t deviceDataAddress, uint8_t numBytes, void *data);
+//     // This runs on the processor's thread, must not use any system calls or wait for a mutex
 //
 // Then call:
 //     mb_bindHandleWrite(myThreadData.managerId, xx_handleWrite);

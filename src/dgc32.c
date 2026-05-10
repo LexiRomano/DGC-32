@@ -486,6 +486,8 @@ static void transferRegToMem(uint32_t toAddress, uint8_t fromRegsel, uint8_t ins
                     buf8 = (uint8_t) buf32 & 0xFF;
                     memcpy(&(memory[toAddress]), &buf8, sizeof(uint8_t));
             }
+
+            mb_writeToDeviceData(toAddress, 4, &(memory[toAddress]));
             
             return;
         case 2:
@@ -517,6 +519,8 @@ static void transferRegToMem(uint32_t toAddress, uint8_t fromRegsel, uint8_t ins
                     buf8 = (uint8_t) buf16 & 0xFF;
                     memcpy(&(memory[toAddress]), &buf8, sizeof(uint8_t));
             }
+
+            mb_writeToDeviceData(toAddress, 2, &(memory[toAddress]));
             
             return;
         case 1:
@@ -548,6 +552,8 @@ static void transferRegToMem(uint32_t toAddress, uint8_t fromRegsel, uint8_t ins
                 case INS_AUG_WORD_SIZE_1:
                     memcpy(&(memory[toAddress]), &buf8, sizeof(uint8_t));
             }
+
+            mb_writeToDeviceData(toAddress, 1, &(memory[toAddress]));
             
             return;
     }

@@ -5,7 +5,12 @@ static thrd_t                 *managerThreads[NUM_DEVICE_MANAGERS]              
 static mtx_t                   managerThreadMutex[NUM_DEVICE_MANAGERS]          = {0};
 static cnd_t                   managerThreadWake[NUM_DEVICE_MANAGERS]           = {0};
 static deviceThreadSemaphore_e managerThreadSemaphore[NUM_DEVICE_MANAGERS]      = {0};
+static bool                    managerWakerTodo[NUM_DEVICE_MANAGERS]            = {0};
 static handleWriteFP_t         managerHandleWriteFunctions[NUM_DEVICE_MANAGERS] = {0};
+
+// Waker thread infrastructure
+static thrd_t *wakerThread     = NULL;
+static bool    wakerThreadLive = false;
 
 // CPU-owned read/write functions for general use memory
 static memTransFP_t  writeMem         = NULL;
@@ -193,6 +198,7 @@ uint8_t dmi_requestNewDevice(uint8_t managerId, uint16_t size)
 {
     mb_device_t *newDevice       = NULL;
     uint8_t      newDeviceId     = NEW_DEVICE_REQUEST_FAILED;
+    bool         isAtEndOfTable  = false;
 
     mtx_lock(&deviceRegistryMutex);
 
@@ -267,6 +273,7 @@ uint8_t dmi_requestNewDevice(uint8_t managerId, uint16_t size)
     newDevice->size       = size;
     newDevice->deviceType = managerDeviceType[managerId];
     newDevice->deviceId   = newDeviceId;
+    newDevice->managerId  = managerId;
 
     // Add to mappings
     deviceMappingData[newDeviceId] = newDevice;
@@ -274,6 +281,22 @@ uint8_t dmi_requestNewDevice(uint8_t managerId, uint16_t size)
     writeMem(MEMBOUND_DREG_START + (newDeviceId * 8) + 1, 1, &(newDevice->deviceType));
     writeMem(MEMBOUND_DREG_START + (newDeviceId * 8) + 2, 2, &size);
     writeMem(MEMBOUND_DREG_START + (newDeviceId * 8) + 4, 4, &(newDevice->startLocation));
+
+    // Adding table end marker if this was added to the end of the table
+    isAtEndOfTable = true;
+    for (uint8_t i = newDeviceId + 1; i < MAX_NUM_DEVICES; i++)
+    {
+        if (NULL != deviceMappingData[i])
+        {
+            isAtEndOfTable = false;
+            break;
+        }
+    }
+
+    if (isAtEndOfTable)
+    {
+        writeMem(MEMBOUND_DREG_START + (newDeviceId * 8) + 6, 1, (uint8_t[]) {DEVICE_TABLE_END_MARKER});
+    }
 
     mtx_unlock(&deviceRegistryMutex);
 
@@ -292,6 +315,7 @@ uint8_t dmi_requestNewDevice(uint8_t managerId, uint16_t size)
 void dmi_removeDevice(uint8_t deviceId)
 {
     mb_device_t *deviceToDelete = NULL;
+    bool         isAtEndOfTable = false;
 
     mtx_lock(&deviceRegistryMutex);
 
@@ -322,6 +346,25 @@ void dmi_removeDevice(uint8_t deviceId)
             p->nextInMem = deviceToDelete->nextInMem;
             break;
         }
+    }
+
+    isAtEndOfTable = true;
+    for (uint8_t i = deviceId + 1; i < MAX_NUM_DEVICES; i++)
+    {
+        if (NULL != deviceMappingData[i])
+        {
+            isAtEndOfTable = false;
+            break;
+        }
+    }
+
+    if (isAtEndOfTable)
+    {
+        writeMem(MEMBOUND_DREG_START + (deviceId * 8) + 1, 1, (uint8_t[]) {DEVICE_TABLE_END_MARKER});
+    }
+    else
+    {   
+        writeMem(MEMBOUND_DREG_START + (deviceId * 8) + 1, 1, (uint8_t[]) {DEVICE_TALBE_EMPTY_MARKER});
     }
 
     free(deviceToDelete);
@@ -437,6 +480,90 @@ bool dmi_bindHandleWrite(uint8_t managerId, handleWriteFP_t handleWriteFunction)
 }
 
 /*******************************************************************************
+* Interface for the processor to handle writes to device data
+*******************************************************************************/
+void mb_writeToDeviceData(uint32_t address, uint8_t size, void *data)
+{
+    mb_device_t *foundDevice = NULL;
+
+    if (address < MEMBOUND_DDAT_START ||
+        address > MEMBOUND_DDAT_END)
+    {
+        // Not writing to device data
+        return;
+    }
+
+    if (address + size - 1 > MEMBOUND_DDAT_END)
+    {
+        // Write splits region boundary
+        enqueueInterrupt(INTERRUPT_CODE_MOTHERBOARD_EVENT + 0b00001000);
+        return;
+    }
+
+    mtx_lock(&deviceRegistryMutex);
+    for (mb_device_t *p = firstDeviceInMem; NULL != p; p = p->nextInMem)
+    {
+        if (address >= p->startLocation &&
+            address + size - 1 <= p->startLocation + p->size - 1)
+        {
+            foundDevice = p;
+            break;
+        }
+
+        if (address + size - 1 > p->startLocation + p->size - 1)
+        {
+            break;
+        }
+    }
+
+    if (NULL == foundDevice)
+    {
+        // Invalid memory region
+        enqueueInterrupt(INTERRUPT_CODE_MOTHERBOARD_EVENT + 0b00001000);
+        mtx_unlock(&deviceRegistryMutex);
+        return;
+    }
+
+    if (NULL != managerHandleWriteFunctions[foundDevice->managerId])
+    {
+        managerHandleWriteFunctions[foundDevice->managerId](foundDevice->deviceId, 
+                                                            address - foundDevice->startLocation,
+                                                            size,
+                                                            data);
+    }
+
+    managerWakerTodo[foundDevice->managerId] = true;
+
+    mtx_unlock(&deviceRegistryMutex);
+}
+
+static int wakerThreadFunction(void *arg)
+{
+    while (wakerThreadLive)
+    {
+        thrd_yield();
+
+        for (uint8_t i = 0; i < MAX_NUM_DEVICES; i++)
+        {
+            if (false == managerWakerTodo[i])
+            {
+                continue;
+            }
+
+            managerWakerTodo[i] = false;
+
+            mtx_lock(&(managerThreadMutex[i]));
+            managerThreadSemaphore[i] = dts_handleWrite;
+            mtx_unlock(&(managerThreadMutex[i]));
+
+            cnd_signal(&(managerThreadWake[i]));
+        }
+    }
+
+    return 0;
+}
+
+/*******************************************************************************
 * Initialize the motherboard and all attached device managers.
 *******************************************************************************/
 bool mb_init(externalFileInfo_t *externalFileInfo, memTransFP_t read, memTransFP_t write, interruptFP_t interrupt)
@@ -507,6 +634,12 @@ bool mb_init(externalFileInfo_t *externalFileInfo, memTransFP_t read, memTransFP
         mtx_unlock(&(managerThreadMutex[i]));
     }
 
+    // Launch waker thread
+    wakerThreadLive = true;
+    wakerThread     = calloc(1, sizeof(thrd_t));
+    thrd_create(wakerThread, wakerThreadFunction, NULL);
+
+
     doneStartup = true;
 
     return true;
@@ -517,6 +650,10 @@ bool mb_init(externalFileInfo_t *externalFileInfo, memTransFP_t read, memTransFP
 *******************************************************************************/
 void mb_teardown()
 {
+    // Kill waker thread:
+    wakerThreadLive = false;
+
+    // Kill all device handlers:
     for (uint8_t i = 0; i < NUM_DEVICE_MANAGERS; i++)
     {
         if (NULL != managerThreads[i])
