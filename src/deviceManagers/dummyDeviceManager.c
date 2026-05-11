@@ -12,6 +12,8 @@ int ddm_initDeviceManager(void *arg)
     memcpy(&myThreadData, arg, sizeof(threadArg_t));
     free(arg);
 
+    mtx_lock(myThreadData.mutex);
+
     // Request initial devices
 
     if (NEW_DEVICE_REQUEST_FAILED == dmi_requestNewDevice(myThreadData.managerId, 32))
@@ -25,7 +27,6 @@ int ddm_initDeviceManager(void *arg)
     dmi_bindHandleWrite(myThreadData.managerId, ddm_handleWrite);
 
     cnd_signal(myThreadData.wakeCondition);
-    mtx_lock(myThreadData.mutex);
 
     while (true)
     {

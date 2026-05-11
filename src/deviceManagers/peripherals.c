@@ -168,6 +168,8 @@ int pr_initDeviceManager(void *arg)
     memcpy(&myThreadData, arg, sizeof(threadArg_t));
     free(arg);
 
+    mtx_lock(myThreadData.mutex);
+
     // Request initial devices
 
     // Dboard
@@ -201,7 +203,6 @@ int pr_initDeviceManager(void *arg)
     dmi_bindHandleWrite(myThreadData.managerId, pr_handleWrite);
 
     cnd_signal(myThreadData.wakeCondition);
-    mtx_lock(myThreadData.mutex);
 
     while (true)
     {

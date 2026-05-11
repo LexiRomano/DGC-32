@@ -635,34 +635,28 @@ bool mb_init(externalFileInfo_t *externalFileInfo, glfwInfo_t *glfw, memTransFP_
         managerThreads[i] = calloc(1, sizeof(thrd_t));
 
         // Launch the thread with this sequencing:
-        // 1 - The motherboard grabs the manager's thread before launch
+        // 1 - The motherboard locks the manager's mutex before launch
         // 2 - The manager's thread gets launched
-        // 3 - The motherboard waits for the manager to initialize
-        // 4 - The manager will initialize itself, including:
+        // 3 - The manager blocks on trying to lock its mutex
+        // 4 - The motherboard waits for the manager to initialize while unlocking the mutex
+        // 5 - The manager will initialize itself, including:
         //         Requesting its initial devices
-        //         Binding its handle write functions
-        // 5 - The manager signals the motherboard it has completed its init
-        // 6 - The motherboard verifies that the manager came up properly
-        // 7 - The motherboard releases the manager's mutex
-        // 8 - The manager takes ownership of its mutex
+        //         Binding its handle write functions (if applicable)
+        // 6 - The manager signals the motherboard it has completed its init
+        // 7 - The motherboard acknowledges the manager's init completion and returns control with a signal
+        // 8 - The motherboard verifies that the manager came up properly
         mtx_lock(&(managerThreadMutex[i]));
         thrd_create(managerThreads[i], managerInitFunctions[i], (void*) tmpThreadArg);
         cnd_wait(&(managerThreadWake[i]), &(managerThreadMutex[i]));
+        mtx_unlock(&(managerThreadMutex[i]));
+        cnd_signal(&(managerThreadWake[i]));
 
         // Check the success of the manager's initialization
-        if (NULL == managerHandleWriteFunctions[i])
-        {
-            managerThreadSemaphore[i].wakeReason = dts_kill;
-        }
-
         if (dts_kill == managerThreadSemaphore[i].wakeReason)
         {
             printf("Failed to initialize device[%hhu]\n", i);
-            mtx_unlock(&(managerThreadMutex[i]));
             return false;
         }
-
-        mtx_unlock(&(managerThreadMutex[i]));
     }
 
     // Launch waker thread
