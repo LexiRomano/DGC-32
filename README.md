@@ -14,6 +14,10 @@ This project is designed with the intention to be accessible to those who cannot
 
 I will be developing the core architecture and emulator on my own. I do, however, welcome contributions in the way that information is presented. As mentionned above, I want this to be accessable to as many people as possible and that requires feedback. I can accept that feedback in any conceivable manner, including pull requests, direct messages, and carrier pigeons. You are also encouraged to tinker around with the emulator's code and write devices and peripherals. I have tried to do this in a modular way so you can swap out my devices for your own. Just be sure not to collide with the "standards" that I have set out - you can come up with your own too if you'd like!!
 
+## Prerequesites
+
+This project uses GLFW. On linux you must install the package `libglfw3-dev`.
+
 ## Usage
 
 *WIP, some makes do not exist yet*
@@ -26,13 +30,19 @@ bash$ ./make selftest    # Self testing version of the executable (dgc32-st - fo
 bash$ ./make binwriter   # Binwriter tool (see Tools section below)
 ```
 
+Once an executable is made, a dgc32 program can be run as such:
+```
+bash$ ./dgc32 <romFile> [diskFile [diskFile...]]
+```
+
 ## Tools
 
 ### Dssembly
 
-*WIP, does not exist yet*
-
-Dssembly is the assembly language and assembler corresponding to the DGC-32 proccessor. It is in its own repository labeled as such and is developed in parallel with this emulator. It is the suggested way to write programs for the DGC-32.
+Dssembly is the assembly language and assembler corresponding to the DGC-32 proccessor. It is in its own repository labeled as such and is developed in parallel with this emulator. It is the suggested way to write programs for the DGC-32. After writing your dssembly program, you can assemble it as such:
+```
+bash$ ./dssembly <inputSrcFile> <outputBinaryFile>
+```
 
 ### Binwriter
 
