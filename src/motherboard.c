@@ -7,9 +7,10 @@ static cnd_t                   managerThreadWake[NUM_DEVICE_MANAGERS]           
 static deviceThreadSemaphore_t managerThreadSemaphore[NUM_DEVICE_MANAGERS]      = {0};
 static handleWriteFP_t         managerHandleWriteFunctions[NUM_DEVICE_MANAGERS] = {0};
 
+static handleTermInFP_t        handleTermInFP                                   = {0};
+
 // Waker thread infrastructure
 static thrd_t *wakerThread                = NULL;
-static bool    wakerThreadLive            = false;
 static bool    wakerTodo[MAX_NUM_DEVICES] = {0};
 
 
@@ -45,7 +46,10 @@ deviceTypes_e managerDeviceType[NUM_DEVICE_MANAGERS] =
 glfwInfo_t *glfwInfo = NULL;
 
 // Misc
-static bool powerState = false;
+static bool           powerState               = false;
+static bool           terminalModified         = false;
+static struct termios originalTerminalSettings = {0};
+
 
 static bool isInterruptTypeAllowed(uint8_t deviceId, interruptTypes_e interruptType)
 {
@@ -191,7 +195,7 @@ bool dmi_enqueueInterrupt(uint8_t deviceId, interruptTypes_e interruptType, uint
 
     enqueueInterrupt(interruptData);
 
-    return false;
+    return true;
 }
 
 /*******************************************************************************
@@ -484,6 +488,24 @@ bool dmi_bindHandleWrite(uint8_t managerId, handleWriteFP_t handleWriteFunction)
 }
 
 /*******************************************************************************
+* Interface for a peripheral device manager to bind a function which will get
+* invoked whenever the terminal receives input.
+*******************************************************************************/
+bool dmi_bindHandleTermIn(uint8_t managerId, handleTermInFP_t handleTermIn)
+{
+    if (managerId >= NUM_DEVICE_MANAGERS ||
+        NULL == handleTermIn ||
+        dt_peripheral != managerDeviceType[managerId])
+    {
+        return false;
+    }
+
+    handleTermInFP = handleTermIn;
+
+    return true;
+}
+
+/*******************************************************************************
 * Interface for the processor to handle writes to device data.
 *******************************************************************************/
 void mb_writeToDeviceData(uint32_t address, uint8_t size, void *data)
@@ -546,15 +568,29 @@ void mb_writeToDeviceData(uint32_t address, uint8_t size, void *data)
 static int wakerThreadFunction(void *arg)
 {
     uint8_t managerId = 0;
+    uint8_t inputBuf  = 0;
 
-    while (wakerThreadLive)
+    while (powerState)
     {
-        thrd_yield();
+        if (0 != read(0, &inputBuf, 1))
+        {
+            // Ctrl + C
+            if (3 == inputBuf)
+            {
+                powerState = false;
+                break;
+            }
+
+            if (NULL != handleTermInFP)
+            {
+                handleTermInFP(inputBuf);
+            }
+        }
 
         if (glfwWindowShouldClose(glfwInfo->window))
         {
             powerState = false;
-            return 0;
+            break;
         }
 
         for (uint8_t i = 0; i < MAX_NUM_DEVICES; i++)
@@ -577,6 +613,8 @@ static int wakerThreadFunction(void *arg)
         }
 
         glfwPollEvents();
+
+        thrd_yield();
     }
 
     return 0;
@@ -595,13 +633,24 @@ bool mb_powerState()
 *******************************************************************************/
 bool mb_init(externalFileInfo_t *externalFileInfo, glfwInfo_t *glfw, memTransFP_t read, memTransFP_t write, interruptFP_t interrupt)
 {
-    threadArg_t *tmpThreadArg = NULL;
+    threadArg_t   *tmpThreadArg = NULL;
+    struct termios term         = {0};
 
     // Bind processor access functions
     readMem          = read;
     writeMem         = write;
     enqueueInterrupt = interrupt;
     glfwInfo         = glfw;
+
+    // Configure the terminal
+    tcgetattr(0, &originalTerminalSettings);
+    terminalModified = true;
+
+    tcgetattr(0, &term);
+    cfmakeraw(&term);             // Make terminal raw
+    term.c_cc[VMIN] = 0;          // Don't wait for any keystrokes
+    term.c_cc[VTIME] = 0;
+    tcsetattr(0, TCSANOW, &term); // set immediately
 
     powerState = false;
 
@@ -660,12 +709,9 @@ bool mb_init(externalFileInfo_t *externalFileInfo, glfwInfo_t *glfw, memTransFP_
     }
 
     // Launch waker thread
-    wakerThreadLive = true;
-    wakerThread     = calloc(1, sizeof(thrd_t));
+    powerState  = true;
+    wakerThread = calloc(1, sizeof(thrd_t));
     thrd_create(wakerThread, wakerThreadFunction, NULL);
-
-
-    powerState = true;
 
     return true;
 }
@@ -675,8 +721,8 @@ bool mb_init(externalFileInfo_t *externalFileInfo, glfwInfo_t *glfw, memTransFP_
 *******************************************************************************/
 void mb_teardown()
 {
-    // Kill waker thread:
-    wakerThreadLive = false;
+    // Ensure waker thread dies:
+    powerState = false;
 
     // Kill all device handlers:
     for (uint8_t i = 0; i < NUM_DEVICE_MANAGERS; i++)
@@ -694,5 +740,10 @@ void mb_teardown()
             mtx_destroy(&(managerThreadMutex[i]));
             cnd_destroy(&(managerThreadWake[i]));
         }
+    }
+
+    if (true == terminalModified)
+    {
+        tcsetattr(0, TCSANOW, &originalTerminalSettings);
     }
 }

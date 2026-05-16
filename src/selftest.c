@@ -75,7 +75,7 @@ bool st_checkFrame(uint32_t generalRegisters[8],
         {
             if (generalRegisters[0] != buf32)
             {
-                printf("G0 check failed in frame %u. Expected: 0x%08x, got 0x%08x\n", frame, buf32, generalRegisters[0]);
+                printf("G0 check failed in frame %u. Expected: 0x%08x, got 0x%08x\n\r", frame, buf32, generalRegisters[0]);
                 rc = false;
             }
         }
@@ -83,7 +83,7 @@ bool st_checkFrame(uint32_t generalRegisters[8],
         {
             if (generalRegisters[1] != buf32)
             {
-                printf("G1 check failed in frame %u. Expected: 0x%08x, got 0x%08x\n", frame, buf32, generalRegisters[1]);
+                printf("G1 check failed in frame %u. Expected: 0x%08x, got 0x%08x\n\r", frame, buf32, generalRegisters[1]);
                 rc = false;
             }
         }
@@ -91,7 +91,7 @@ bool st_checkFrame(uint32_t generalRegisters[8],
         {
             if (generalRegisters[2] != buf32)
             {
-                printf("G2 check failed in frame %u. Expected: 0x%08x, got 0x%08x\n", frame, buf32, generalRegisters[2]);
+                printf("G2 check failed in frame %u. Expected: 0x%08x, got 0x%08x\n\r", frame, buf32, generalRegisters[2]);
                 rc = false;
             }
         }
@@ -99,7 +99,7 @@ bool st_checkFrame(uint32_t generalRegisters[8],
         {
             if (generalRegisters[3] != buf32)
             {
-                printf("G3 check failed in frame %u. Expected: 0x%08x, got 0x%08x\n", frame, buf32, generalRegisters[3]);
+                printf("G3 check failed in frame %u. Expected: 0x%08x, got 0x%08x\n\r", frame, buf32, generalRegisters[3]);
                 rc = false;
             }
         }
@@ -107,7 +107,7 @@ bool st_checkFrame(uint32_t generalRegisters[8],
         {
             if (generalRegisters[4] != buf32)
             {
-                printf("G4 check failed in frame %u. Expected: 0x%08x, got 0x%08x\n", frame, buf32, generalRegisters[4]);
+                printf("G4 check failed in frame %u. Expected: 0x%08x, got 0x%08x\n\r", frame, buf32, generalRegisters[4]);
                 rc = false;
             }
         }
@@ -115,7 +115,7 @@ bool st_checkFrame(uint32_t generalRegisters[8],
         {
             if (generalRegisters[5] != buf32)
             {
-                printf("G5 check failed in frame %u. Expected: 0x%08x, got 0x%08x\n", frame, buf32, generalRegisters[5]);
+                printf("G5 check failed in frame %u. Expected: 0x%08x, got 0x%08x\n\r", frame, buf32, generalRegisters[5]);
                 rc = false;
             }
         }
@@ -123,7 +123,7 @@ bool st_checkFrame(uint32_t generalRegisters[8],
         {
             if (generalRegisters[6] != buf32)
             {
-                printf("G6 check failed in frame %u. Expected: 0x%08x, got 0x%08x\n", frame, buf32, generalRegisters[6]);
+                printf("G6 check failed in frame %u. Expected: 0x%08x, got 0x%08x\n\r", frame, buf32, generalRegisters[6]);
                 rc = false;
             }
         }
@@ -131,7 +131,7 @@ bool st_checkFrame(uint32_t generalRegisters[8],
         {
             if (generalRegisters[7] != buf32)
             {
-                printf("G7 check failed in frame %u. Expected: 0x%08x, got 0x%08x\n", frame, buf32, generalRegisters[7]);
+                printf("G7 check failed in frame %u. Expected: 0x%08x, got 0x%08x\n\r", frame, buf32, generalRegisters[7]);
                 rc = false;
             }
         }
@@ -139,7 +139,7 @@ bool st_checkFrame(uint32_t generalRegisters[8],
         {
             if (offsetRegisters[0] != buf32)
             {
-                printf("OA check failed in frame %u. Expected: 0x%08x, got 0x%08x\n", frame, buf32, offsetRegisters[0]);
+                printf("OA check failed in frame %u. Expected: 0x%08x, got 0x%08x\n\r", frame, buf32, offsetRegisters[0]);
                 rc = false;
             }
         }
@@ -147,7 +147,7 @@ bool st_checkFrame(uint32_t generalRegisters[8],
         {
             if (offsetRegisters[1] != buf32)
             {
-                printf("OB check failed in frame %u. Expected: 0x%08x, got 0x%08x\n", frame, buf32, offsetRegisters[1]);
+                printf("OB check failed in frame %u. Expected: 0x%08x, got 0x%08x\n\r", frame, buf32, offsetRegisters[1]);
                 rc = false;
             }
         }
@@ -155,7 +155,7 @@ bool st_checkFrame(uint32_t generalRegisters[8],
         {
             if (offsetRegisters[2] != buf32)
             {
-                printf("OC check failed in frame %u. Expected: 0x%08x, got 0x%08x\n", frame, buf32, offsetRegisters[2]);
+                printf("OC check failed in frame %u. Expected: 0x%08x, got 0x%08x\n\r", frame, buf32, offsetRegisters[2]);
                 rc = false;
             }
         }
@@ -163,7 +163,7 @@ bool st_checkFrame(uint32_t generalRegisters[8],
         {
             if (stackBase != buf32)
             {
-                printf("SB check failed in frame %u. Expected: 0x%08x, got 0x%08x\n", frame, buf32, stackBase);
+                printf("SB check failed in frame %u. Expected: 0x%08x, got 0x%08x\n\r", frame, buf32, stackBase);
                 rc = false;
             }
         }
@@ -171,7 +171,7 @@ bool st_checkFrame(uint32_t generalRegisters[8],
         {
             if (stackSize != buf16)
             {
-                printf("SS check failed in frame %u. Expected: 0x%04hx, got 0x%04hx\n", frame, buf16, stackSize);
+                printf("SS check failed in frame %u. Expected: 0x%04hx, got 0x%04hx\n\r", frame, buf16, stackSize);
                 rc = false;
             }
         }
@@ -179,7 +179,7 @@ bool st_checkFrame(uint32_t generalRegisters[8],
         {
             if (interruptTable != buf32)
             {
-                printf("IL check failed in frame %u. Expected: 0x%08x, got 0x%08x\n", frame, buf32, interruptTable);
+                printf("IL check failed in frame %u. Expected: 0x%08x, got 0x%08x\n\r", frame, buf32, interruptTable);
                 rc = false;
             }
         }
@@ -187,7 +187,7 @@ bool st_checkFrame(uint32_t generalRegisters[8],
         {
             if (programCounter != buf32)
             {
-                printf("PC check failed in frame %u. Expected: 0x%08x, got 0x%08x\n", frame, buf32, programCounter);
+                printf("PC check failed in frame %u. Expected: 0x%08x, got 0x%08x\n\r", frame, buf32, programCounter);
                 rc = false;
             }
         }
@@ -195,7 +195,7 @@ bool st_checkFrame(uint32_t generalRegisters[8],
         {
             if (instructionRegister != buf32)
             {
-                printf("IR check failed in frame %u. Expected: 0x%08x, got 0x%08x\n", frame, buf32, instructionRegister);
+                printf("IR check failed in frame %u. Expected: 0x%08x, got 0x%08x\n\r", frame, buf32, instructionRegister);
                 rc = false;
             }
         }
@@ -203,7 +203,7 @@ bool st_checkFrame(uint32_t generalRegisters[8],
         {
             if (instructionAugment != buf8)
             {
-                printf("IA check failed in frame %u. Expected: 0x%02hhx, got 0x%02hhx\n", frame, buf8, instructionAugment);
+                printf("IA check failed in frame %u. Expected: 0x%02hhx, got 0x%02hhx\n\r", frame, buf8, instructionAugment);
                 rc = false;
             }
         }
@@ -211,7 +211,7 @@ bool st_checkFrame(uint32_t generalRegisters[8],
         {
             if (interruptHead != buf8)
             {
-                printf("IH check failed in frame %u. Expected: 0x%02hhx, got 0x%02hhx\n", frame, buf8, interruptHead);
+                printf("IH check failed in frame %u. Expected: 0x%02hhx, got 0x%02hhx\n\r", frame, buf8, interruptHead);
                 rc = false;
             }
         }
@@ -219,7 +219,7 @@ bool st_checkFrame(uint32_t generalRegisters[8],
         {
             if (interruptTail != buf8)
             {
-                printf("IT check failed in frame %u. Expected: 0x%02hhx, got 0x%02hhx\n", frame, buf8, interruptTail);
+                printf("IT check failed in frame %u. Expected: 0x%02hhx, got 0x%02hhx\n\r", frame, buf8, interruptTail);
                 rc = false;
             }
         }
@@ -227,7 +227,7 @@ bool st_checkFrame(uint32_t generalRegisters[8],
         {
             if (stackPointer != buf16)
             {
-                printf("SP check failed in frame %u. Expected: 0x%04hx, got 0x%04hx\n", frame, buf16, stackPointer);
+                printf("SP check failed in frame %u. Expected: 0x%04hx, got 0x%04hx\n\r", frame, buf16, stackPointer);
                 rc = false;
             }
         }
@@ -235,7 +235,7 @@ bool st_checkFrame(uint32_t generalRegisters[8],
         {
             if (flagsRegister != buf8)
             {
-                printf("FL check failed in frame %u. Expected: 0b%04hhb, got 0b%04hhb\n", frame, buf8, flagsRegister);
+                printf("FL check failed in frame %u. Expected: 0b%04hhb, got 0b%04hhb\n\r", frame, buf8, flagsRegister);
                 rc = false;
             }
         }
@@ -243,7 +243,7 @@ bool st_checkFrame(uint32_t generalRegisters[8],
         {
             if (currentInterrupt != buf16)
             {
-                printf("CI check failed in frame %u. Expected: 0x%04hx, got 0x%04hx\n", frame, buf16, currentInterrupt);
+                printf("CI check failed in frame %u. Expected: 0x%04hx, got 0x%04hx\n\r", frame, buf16, currentInterrupt);
                 rc = false;
             }
         }
@@ -251,7 +251,7 @@ bool st_checkFrame(uint32_t generalRegisters[8],
         {
             if (memory[buf32] != buf8)
             {
-                printf("MEM check at 0x%08x failed in frame %u. Expected: 0x%02hhx, got 0x%02hhx\n", buf32, frame, buf8, memory[buf32]);
+                printf("MEM check at 0x%08x failed in frame %u. Expected: 0x%02hhx, got 0x%02hhx\n\r", buf32, frame, buf8, memory[buf32]);
                 rc = false;
             }
         }
@@ -288,7 +288,7 @@ bool st_checkFrame(uint32_t generalRegisters[8],
                     }
                 }
 
-                printf("Unknown test directive \"%s\" on line %u\n", buffer, line);
+                printf("Unknown test directive \"%s\" on line %u\n\r", buffer, line);
                 return false;
             }
         }
@@ -304,10 +304,10 @@ bool st_checkFrame(uint32_t generalRegisters[8],
 
             elapsedTime = (t.tv_sec * SEC_TO_NSEC) + t.tv_nsec - startTime;
 
-            printf("Average clock speed: %.03lfMHz\n", (((double) frame / elapsedTime)) * 1000);
+            printf("Average clock speed: %.03lfMHz\n\r", (((double) frame / elapsedTime)) * 1000);
         }
 
-        printf("Success!\n");
+        printf("Success!\n\r");
     }
 
     return false;
@@ -321,7 +321,7 @@ bool st_setTestFile(char *arg)
 
     if (NULL == testFile)
     {
-        printf("Self test error: failed to open test file \"%s\"\n", arg);
+        printf("Self test error: failed to open test file \"%s\"\n\r", arg);
         return false;
     }
 
@@ -334,7 +334,7 @@ bool st_setTestFile(char *arg)
         }
     }
 
-    printf("Self test error: could not find frame marker in test file\n");
+    printf("Self test error: could not find frame marker in test file\n\r");
 
     return false;
 }

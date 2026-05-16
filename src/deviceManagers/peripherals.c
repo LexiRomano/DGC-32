@@ -97,6 +97,14 @@ static void pr_dboardHandleKeyPress(GLFWwindow* window, int key, int scancode, i
     }
 }
 
+static void pr_derialHandleTermIn(uint8_t data)
+{
+    if (false != dmi_writeDeviceData(derialDeviceId, DERIAL_INBOUND_ADDRESS, 1, &data))
+    {
+        dmi_enqueueInterrupt(derialDeviceId, it_peripheralEvent, 0);
+    }
+}
+
 static void pr_derialHandleWrite()
 {
     while (derialOutboundBufferHead != derialOutboundBufferTail)
@@ -185,6 +193,8 @@ int pr_initDeviceManager(void *arg)
         return false;
     }
 
+    glfwSetKeyCallback(myThreadData.glfwInfo.window, pr_dboardHandleKeyPress);
+
     // Derial
     derialDeviceId = dmi_requestNewDevice(myThreadData.managerId, DERIAL_DDAT_SIZE);
 
@@ -197,7 +207,7 @@ int pr_initDeviceManager(void *arg)
         return false;
     }
 
-    glfwSetKeyCallback(myThreadData.glfwInfo.window, pr_dboardHandleKeyPress);
+    dmi_bindHandleTermIn(myThreadData.managerId, pr_derialHandleTermIn);
 
     // Bind the read handler
     dmi_bindHandleWrite(myThreadData.managerId, pr_handleWrite);

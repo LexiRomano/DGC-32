@@ -2,6 +2,8 @@
 #define __MOTHERBOARD_H__
 
 #include <threads.h>
+#include <termios.h>
+#include <unistd.h>
 
 #include "dgc32.h"
 #include "deviceManagerInterface.h"

@@ -21,4 +21,4 @@ A d-grade serial interface
 
 ## Interrupts
 
-When a new byte is received, the serial port will trigger an interrupt after placing the data in the inbound buffer.
+When a new byte is received, the serial port will trigger a peripheral event interrupt after placing the data in the inbound buffer.
