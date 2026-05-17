@@ -41,7 +41,7 @@ The parameter corresponds to the scancode of the key that was released.
 
 ### Peripheral Event (0x03)
 
-The 3 least signifigant bits corresponds to the device table entry from where the interrupt originates. The remainer are used as parameters from the peripheral device.
+The 6 least signifigant bits corresponds to the device table entry from where the interrupt originates. The remainer are used as parameters from the peripheral device.
 
 ### Motherboard Event (0x04)
 
@@ -60,15 +60,15 @@ This interrupt is triggered when something in the stack experiences one of the f
 
 ### Timer Event (0x06)
 
-The 3 least signifigant bits corresponds to the device table entry from where the interrupt originates. The remainer are used as parameters from the timer device.
+The 6 least signifigant bits corresponds to the device table entry from where the interrupt originates. The remainer are used as parameters from the timer device.
 
 ### Storage Event (0x07)
 
-The 3 least signifigant bits corresponds to the device table entry from where the interrupt originates. The remainer are used as parameters from the storage device.
+The 6 least signifigant bits corresponds to the device table entry from where the interrupt originates. The remainer are used as parameters from the storage device.
 
 ### Graphical Event (0x08)
 
-The 3 least signifigant bits corresponds to the device table entry from where the interrupt originates. The remainer are used as parameters from the graphical device.
+The 6 least signifigant bits corresponds to the device table entry from where the interrupt originates. The remainer are used as parameters from the graphical device.
 
 ### Memory Violation (0x09)
 

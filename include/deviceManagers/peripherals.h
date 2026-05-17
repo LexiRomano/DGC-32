@@ -87,7 +87,7 @@
 #define DERIAL_INBOUND_ADDRESS    2
 #define DERIAL_OUTBOUND_ADDRESS   3
 
-#define DERIAL_OUTBOUND_BUF_SIZE  8
+#define DERIAL_OUTBOUND_BUF_SIZE  32
 
 int pr_initDeviceManager(void *arg);
 

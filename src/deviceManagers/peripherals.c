@@ -190,7 +190,8 @@ int pr_initDeviceManager(void *arg)
     {
         myThreadData.semaphore->wakeReason = dts_kill;
         cnd_signal(myThreadData.wakeCondition);
-        return false;
+        mtx_unlock(myThreadData.mutex);
+        return -1;
     }
 
     glfwSetKeyCallback(myThreadData.glfwInfo.window, pr_dboardHandleKeyPress);
@@ -204,7 +205,8 @@ int pr_initDeviceManager(void *arg)
     {
         myThreadData.semaphore->wakeReason = dts_kill;
         cnd_signal(myThreadData.wakeCondition);
-        return false;
+        mtx_unlock(myThreadData.mutex);
+        return -1;
     }
 
     dmi_bindHandleTermIn(myThreadData.managerId, pr_derialHandleTermIn);

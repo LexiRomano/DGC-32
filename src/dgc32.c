@@ -250,6 +250,8 @@ static bool init(int argc, char* argv[])
 
         fclose(testFileExists);
         testFileExists = NULL;
+
+        motherboardInitParams.storageFileNames[i] = storageDeviceFileNames[i];
     }
 
     // Setup GLFW

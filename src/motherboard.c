@@ -29,7 +29,7 @@ thrd_start_t managerInitFunctions[NUM_DEVICE_MANAGERS] =
 {
     ddm_initDeviceManager,
     pr_initDeviceManager,
-    ddm_initDeviceManager,
+    st_initDeviceManager,
     ddm_initDeviceManager,
     ddm_initDeviceManager
 };
@@ -37,7 +37,7 @@ deviceTypes_e managerDeviceType[NUM_DEVICE_MANAGERS] =
 {
     dt_none,
     dt_peripheral,
-    dt_none,
+    dt_storage,
     dt_none,
     dt_none
 };
@@ -179,7 +179,7 @@ bool dmi_enqueueInterrupt(uint8_t deviceId, interruptTypes_e interruptType, uint
         case it_storageEvent:
         case it_graphicalEvent:
             break;
-            if (0 != (interruptParameter & 0b111))
+            if (0 != (interruptParameter & 0b111111))
             {
                 return false;
             }
@@ -377,6 +377,8 @@ void dmi_removeDevice(uint8_t deviceId)
 
     free(deviceToDelete);
 
+    enqueueInterrupt(INTERRUPT_CODE_MOTHERBOARD_EVENT + (deviceId << 8));
+
     mtx_unlock(&deviceRegistryMutex);
 }
 
@@ -439,10 +441,10 @@ bool dmi_writeDeviceData(uint8_t deviceId, uint16_t deviceDataAddress, uint8_t n
 *******************************************************************************/
 bool dmi_readFromMemory(uint32_t address, uint8_t numBytes, void *data)
 {
-    if (address < MEMBOUND_GEN_START ||
-        (uint64_t) address + numBytes - 1 > MEMBOUND_GEN_END ||
-        0    == numBytes ||
-        NULL == data);
+    if (address < MEMBOUND_GEN_START                             ||
+        ((uint64_t) address) + (numBytes - 1) > MEMBOUND_GEN_END ||
+        0    == numBytes                                         ||
+        NULL == data)
     {
         return false;
     }
@@ -457,10 +459,10 @@ bool dmi_readFromMemory(uint32_t address, uint8_t numBytes, void *data)
 *******************************************************************************/
 bool dmi_writeToMemory(uint32_t address, uint8_t numBytes, void *data)
 {
-    if (address < MEMBOUND_GEN_START ||
-        (uint64_t) address + numBytes - 1 > MEMBOUND_GEN_END ||
-        0    == numBytes ||
-        NULL == data);
+    if (address < MEMBOUND_GEN_START                             ||
+        ((uint64_t) address) + (numBytes - 1) > MEMBOUND_GEN_END ||
+        0    == numBytes                                         ||
+        NULL == data)
     {
         return false;
     }
@@ -703,7 +705,6 @@ bool mb_init(externalFileInfo_t *externalFileInfo, glfwInfo_t *glfw, memTransFP_
         // Check the success of the manager's initialization
         if (dts_kill == managerThreadSemaphore[i].wakeReason)
         {
-            printf("Failed to initialize device[%hhu]\n", i);
             return false;
         }
     }

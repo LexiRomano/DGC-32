@@ -16,11 +16,12 @@ int ddm_initDeviceManager(void *arg)
 
     // Request initial devices
 
-    if (NEW_DEVICE_REQUEST_FAILED == dmi_requestNewDevice(myThreadData.managerId, 32))
+    if (NEW_DEVICE_REQUEST_FAILED == dmi_requestNewDevice(myThreadData.managerId, 2))
     {
         myThreadData.semaphore->wakeReason = dts_kill;
         cnd_signal(myThreadData.wakeCondition);
-        return false;
+        mtx_unlock(myThreadData.mutex);
+        return -1;
     }
 
     // Bind the read handler
