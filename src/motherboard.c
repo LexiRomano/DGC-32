@@ -546,7 +546,7 @@ void mb_writeToDeviceData(uint32_t address, uint8_t size, void *data)
     if (NULL == foundDevice)
     {
         // Invalid memory region
-        enqueueInterrupt(INTERRUPT_CODE_MOTHERBOARD_EVENT + (0b00001000 << 8));
+        enqueueInterrupt(INTERRUPT_CODE_MOTHERBOARD_EVENT + (0b11000000 << 8));
         mtx_unlock(&deviceRegistryMutex);
         return;
     }

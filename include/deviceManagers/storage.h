@@ -20,6 +20,7 @@ typedef struct
 
 // Dardrive generic
 #define DARDRIVE_MAX_DRIVE_COUNT 16
+#define DARDRIVE_SECTORS_BEGIN   4
 
 // Dardrive drive manager
 #define DARDRIVE_M_SPI       0x01
@@ -53,7 +54,6 @@ typedef struct
 #define DARDRIVE_D_INITIATE_WRITE 1
 
 #define DARDRIVE_D_FAILURE_OVERLAY 0xC0
-
 
 int st_initDeviceManager(void *arg);
 

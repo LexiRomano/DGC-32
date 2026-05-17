@@ -7,10 +7,31 @@ static bool    insertNewDrive      = false;
 static bool    insertExistingDrive = false;
 static bool    removeDrive         = false;
 
-static driveData_t *driveData[DARDRIVE_MAX_DRIVE_COUNT] = {0};
+static driveData_t *driveData[DARDRIVE_MAX_DRIVE_COUNT]  = {0};
+static bool         driveRead[DARDRIVE_MAX_DRIVE_COUNT]  = {0};
+static bool         driveWrite[DARDRIVE_MAX_DRIVE_COUNT] = {0};
+
+// Returns 0xFF if not found
+static uint8_t st_deviceIdToDriveIndex(uint8_t deviceId)
+{
+    for (uint8_t i = 0; i < DARDRIVE_MAX_DRIVE_COUNT; i++)
+    {
+        if (NULL     == driveData[i] ||
+            deviceId != driveData[i]->deviceId)
+        {
+            continue;
+        }
+
+        return i;
+    }
+
+    return 0xFF;
+}
 
 static void st_handleWrite(uint8_t deviceId, uint16_t deviceDataAddress, uint8_t numBytes, void *data)
 {
+    uint8_t driveIndex = 0xFF;
+
     if (deviceId == driveManagerId)
     {
         if (0 == deviceDataAddress)
@@ -30,6 +51,31 @@ static void st_handleWrite(uint8_t deviceId, uint16_t deviceDataAddress, uint8_t
                     break;
                 case 2:
                     removeDrive = true;
+                    break;
+            }
+        }
+    }
+    else
+    {
+        if (deviceDataAddress <= DARDRIVE_D_SECTOR_COUNT_ADDRESS)
+        {
+            driveIndex = st_deviceIdToDriveIndex(deviceId);
+            dmi_writeDeviceData(deviceId, 0, 3, (uint8_t[]) {DARDRIVE_D_SPI,
+                                                             driveData[driveIndex]->sectorSize,
+                                                             driveData[driveIndex]->sectorCount});
+        }
+        else if (DARDRIVE_D_INITIATE_ADDRESS == deviceDataAddress &&
+                 1                           == numBytes)
+        {
+            driveIndex = st_deviceIdToDriveIndex(deviceId);
+
+            switch (*((uint8_t*) data))
+            {
+                case 0:
+                    driveRead[driveIndex] = true;
+                    break;
+                case 1:
+                    driveWrite[driveIndex] = true;
                     break;
             }
         }
@@ -217,19 +263,7 @@ static bool st_insertExistingDriveFile(char *fileName)
 
 static bool st_removeDrive(uint8_t driveDeviceId)
 {
-    uint8_t foundDriveIndex = 0xFF;
-
-    for (uint8_t i = 0; i < DARDRIVE_MAX_DRIVE_COUNT; i++)
-    {
-        if (NULL          == driveData[i] ||
-            driveDeviceId != driveData[i]->deviceId)
-        {
-            continue;
-        }
-
-        foundDriveIndex = i;
-        break;
-    }
+    uint8_t foundDriveIndex = st_deviceIdToDriveIndex(driveDeviceId);
 
     if (0xFF == foundDriveIndex)
     {
@@ -245,7 +279,7 @@ static bool st_removeDrive(uint8_t driveDeviceId)
     return true;
 }
 
-static void st_hanldeManagerWriteWake()
+static void st_handleManagerWriteWake()
 {
     uint8_t  ddatBuf[DARDRIVE_M_DDAT_SIZE]                  = {0};
     uint8_t  fileNameBuf[DARDRIVE_M_MAX_FILE_NAME_SIZE + 1] = {0};
@@ -322,6 +356,225 @@ static void st_hanldeManagerWriteWake()
     }
 }
 
+static void st_handleDiskWriteWake(uint8_t deviceId)
+{
+    uint8_t      driveIndex                    = 0xFF;
+    uint8_t      ddatBuf[DARDRIVE_D_DDAT_SIZE] = {0};
+    driveData_t *driveToHandle                 = NULL;
+    FILE        *fd                            = NULL;
+    bool         isRead                        = false;
+    uint32_t     sectorSize                    = 0;
+    uint32_t     maxSectorCount                = 0;
+    uint32_t     selectedSector                = 0;
+    uint64_t     addressOnFile                 = 0;
+    uint32_t     addressInMemory               = 0;
+    uint8_t      buf[128]                      = {0};
+    uint8_t      bytesRead                     = 0;
+    bool         eofReached                    = false;
+
+    driveIndex = st_deviceIdToDriveIndex(deviceId);
+
+    if (0xFF == driveIndex)
+    {
+        dmi_enqueueInterrupt(deviceId, it_storageEvent, DARDRIVE_D_FAILURE_OVERLAY);
+        return;
+    }
+
+    if (false == driveRead[driveIndex] &&
+        false == driveWrite[driveIndex])
+    {
+        return;
+    }
+
+    if (driveRead[driveIndex])
+    {
+        driveRead[driveIndex] = false;
+        isRead = true;
+    }
+    else
+    {
+        driveWrite[driveIndex] = false;
+    }
+
+    if (false == dmi_readDeviceData(deviceId, 0, DARDRIVE_D_DDAT_SIZE, ddatBuf))
+    {
+        dmi_enqueueInterrupt(deviceId, it_storageEvent, DARDRIVE_D_FAILURE_OVERLAY);
+        return;
+    }
+
+    driveToHandle = driveData[driveIndex];
+
+    maxSectorCount = 1 << ddatBuf[DARDRIVE_D_SECTOR_COUNT_ADDRESS];
+
+    memcpy(&selectedSector, &(ddatBuf[DARDRIVE_D_DRIVE_SECTOR_ADDRESS]), sizeof(uint32_t));
+
+    if (NULL == driveToHandle->fileName ||
+        selectedSector >= maxSectorCount)
+    {
+        dmi_enqueueInterrupt(deviceId, it_storageEvent, DARDRIVE_D_FAILURE_OVERLAY);
+        return;
+    }
+
+    sectorSize = 1 << ddatBuf[DARDRIVE_D_SECTOR_SIZE_ADDRESS];
+
+    addressOnFile  = sectorSize;
+    addressOnFile *= selectedSector;
+    addressOnFile += DARDRIVE_SECTORS_BEGIN;
+
+    memcpy(&addressInMemory, &(ddatBuf[DARDRIVE_D_MEMORY_ADDRESS_ADDRESS]), sizeof(uint32_t));
+
+    if (isRead)
+    {
+        fd = fopen(driveToHandle->fileName, "r");
+
+        if (NULL == fd)
+        {
+            dmi_enqueueInterrupt(deviceId, it_storageEvent, DARDRIVE_D_FAILURE_OVERLAY);
+            return;
+        }
+
+        if (-1 == fseek(fd, addressOnFile, SEEK_SET))
+        {
+            fclose(fd);
+            dmi_enqueueInterrupt(deviceId, it_storageEvent, DARDRIVE_D_FAILURE_OVERLAY);
+            return;
+        }
+
+        if (sectorSize < 128)
+        {
+            bytesRead = fread(buf, 1, sectorSize, fd);
+
+            if (sectorSize != bytesRead)
+            {
+                if (0 == ferror(fd))
+                {
+                    fclose(fd);
+                    dmi_enqueueInterrupt(deviceId, it_storageEvent, DARDRIVE_D_FAILURE_OVERLAY);
+                    return;
+                }
+
+                memset(&(buf[bytesRead]), 0, sectorSize - bytesRead);
+            }
+
+            fclose(fd);
+
+            if (false == dmi_writeToMemory(addressInMemory, sectorSize, buf))
+            {
+                dmi_enqueueInterrupt(deviceId, it_storageEvent, DARDRIVE_D_FAILURE_OVERLAY);
+                return;
+            }
+        }
+        else
+        {
+            for (uint32_t i = 0; i < sectorSize / 128; i++)
+            {
+                if (false == eofReached)
+                {
+                    bytesRead = fread(buf, 1, sectorSize, fd);
+
+                    if (128 != bytesRead)
+                    {
+                        if (0 != ferror(fd))
+                        {
+                            fclose(fd);
+                            dmi_enqueueInterrupt(deviceId, it_storageEvent, DARDRIVE_D_FAILURE_OVERLAY);
+                            return;
+                        }
+
+                        memset(&(buf[bytesRead]), 0, 128 - bytesRead);
+                        eofReached = true;
+                    }
+
+                    if (false == dmi_writeToMemory(addressInMemory, 128, buf))
+                    {
+                        fclose(fd);
+                        dmi_enqueueInterrupt(deviceId, it_storageEvent, DARDRIVE_D_FAILURE_OVERLAY);
+                        return;
+                    }
+
+                    if (eofReached)
+                    {
+                        memset(buf, 0, 128);
+                    }
+                }
+                else
+                {
+                    if (false == dmi_writeToMemory(addressInMemory, 128, buf))
+                    {
+                        fclose(fd);
+                        dmi_enqueueInterrupt(deviceId, it_storageEvent, DARDRIVE_D_FAILURE_OVERLAY);
+                        return;
+                    }
+                }
+
+                addressInMemory += 128;
+            }
+
+            fclose(fd);
+        }
+    }
+    else
+    {
+        fd = fopen(driveToHandle->fileName, "r+");
+
+        if (NULL == fd)
+        {
+            dmi_enqueueInterrupt(deviceId, it_storageEvent, DARDRIVE_D_FAILURE_OVERLAY);
+            return;
+        }
+
+        if (-1 == fseek(fd, addressOnFile, SEEK_SET))
+        {
+            fclose(fd);
+            dmi_enqueueInterrupt(deviceId, it_storageEvent, DARDRIVE_D_FAILURE_OVERLAY);
+            return;
+        }
+
+        if (sectorSize < 128)
+        {
+            if (false == dmi_readFromMemory(addressInMemory, sectorSize, buf))
+            {
+                dmi_enqueueInterrupt(deviceId, it_storageEvent, DARDRIVE_D_FAILURE_OVERLAY);
+                return;
+            }
+
+            if (sectorSize != fwrite(buf, 1, sectorSize, fd))
+            {
+                fclose(fd);
+                dmi_enqueueInterrupt(deviceId, it_storageEvent, DARDRIVE_D_FAILURE_OVERLAY);
+                return;
+            }
+
+            fclose(fd);
+        }
+        else
+        {
+            for (uint32_t i = 0; i < sectorSize / 128; i++)
+            {
+                if (false == dmi_readFromMemory(addressInMemory, 128, buf))
+                {
+                    fclose(fd);
+                    dmi_enqueueInterrupt(deviceId, it_storageEvent, DARDRIVE_D_FAILURE_OVERLAY);
+                    return;
+                }
+
+                if (128 != fread(buf, 1, sectorSize, fd))
+                {
+                    fclose(fd);
+                    dmi_enqueueInterrupt(deviceId, it_storageEvent, DARDRIVE_D_FAILURE_OVERLAY);
+                    return;
+                }
+
+                addressInMemory += 128;
+            }
+
+            fclose(fd);
+        }
+    }
+
+    dmi_enqueueInterrupt(deviceId, it_storageEvent, 0);
+}
+
 static void st_teardown()
 {
     for (uint8_t i = 0; i < DARDRIVE_MAX_DRIVE_COUNT; i++)
@@ -393,7 +646,11 @@ int st_initDeviceManager(void *arg)
             case dts_handleWrite:
                 if (myThreadData.semaphore->deviceId == driveManagerId)
                 {
-                    st_hanldeManagerWriteWake();
+                    st_handleManagerWriteWake();
+                }
+                else
+                {
+                    st_handleDiskWriteWake(myThreadData.semaphore->deviceId);
                 }
             case dts_continue:
                 break;
