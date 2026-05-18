@@ -24,10 +24,10 @@ This project uses GLFW. On linux you must install the package `libglfw3-dev`.
 
 Here are the different ways to make the executables in this project:
 ```
-bash$ ./make             # Regular dgc32 executable
-bash$ ./make usertest    # User testing version of the executable (dgc32-ut)
-bash$ ./make selftest    # Self testing version of the executable (dgc32-st - for regression testing. You can ignore this one)
-bash$ ./make binwriter   # Binwriter tool (see Tools section below)
+bash$ ./make.sh             # Regular dgc32 executable
+bash$ ./make.sh usertest    # User testing version of the executable (dgc32-ut)
+bash$ ./make.sh selftest    # Self testing version of the executable (dgc32-st - for regression testing. You can ignore this one)
+bash$ ./make.sh binwriter   # Binwriter tool (see Tools section below)
 ```
 
 Once an executable is made, a dgc32 program can be run as such:

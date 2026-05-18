@@ -73,7 +73,7 @@ static int glfwKeyTokensForDboard[][2] =
 static uint8_t derialDeviceId                                  = NEW_DEVICE_REQUEST_FAILED;
 static uint8_t derialOutboundBuffer[DERIAL_OUTBOUND_BUF_SIZE]  = {0};
 static uint8_t derialOutboundBufferHead                        = 0;
-static uint8_t derialOutboundBufferTail                        = 0;
+static bool    derialShouldFlush                               = false;
 
 
 static void pr_dboardHandleKeyPress(GLFWwindow* window, int key, int scancode, int action, int mods)
@@ -101,18 +101,28 @@ static void pr_derialHandleTermIn(uint8_t data)
 {
     if (false != dmi_writeDeviceData(derialDeviceId, DERIAL_INBOUND_ADDRESS, 1, &data))
     {
-        dmi_enqueueInterrupt(derialDeviceId, it_peripheralEvent, 0);
+        dmi_enqueueInterrupt(derialDeviceId, it_peripheralEvent, DERIAL_RECEIVED_INT_OVERLAY);
     }
 }
 
 static void pr_derialHandleWrite()
 {
-    while (derialOutboundBufferHead != derialOutboundBufferTail)
+    if (false == derialShouldFlush)
     {
-        printf("%c", derialOutboundBuffer[derialOutboundBufferTail]);
-        derialOutboundBufferTail = (derialOutboundBufferTail + 1) % DERIAL_OUTBOUND_BUF_SIZE;
+        return;
     }
 
+    derialShouldFlush = false;
+
+    for (uint8_t i = 0; i < derialOutboundBufferHead; i++)
+    {
+        printf("%c", derialOutboundBuffer[i]);
+    }
+
+    dmi_enqueueInterrupt(derialDeviceId, it_peripheralEvent, DERIAL_FLUSH_COMPLETE_INT_OVERLAY);
+
+
+    derialOutboundBufferHead = 0;
     fflush(stdout);
 }
 
@@ -159,12 +169,18 @@ static void pr_handleWrite(uint8_t deviceId, uint16_t deviceDataAddress, uint8_t
     }
     else if (derialDeviceId == deviceId)
     {
-        if (deviceDataAddress == DERIAL_OUTBOUND_ADDRESS &&
-            numBytes == 1)
+        if (DERIAL_OUTBOUND_ADDRESS == deviceDataAddress &&
+            1                       == numBytes &&
+            derialOutboundBufferHead < DERIAL_OUTBOUND_BUF_SIZE)
         {
             derialOutboundBuffer[derialOutboundBufferHead] = *((uint8_t*) data);
 
-            derialOutboundBufferHead = (derialOutboundBufferHead + 1) % DERIAL_OUTBOUND_BUF_SIZE;
+            derialOutboundBufferHead = derialOutboundBufferHead + 1;
+        }
+        else if (DERIAL_FLUSH_ADDRESS == deviceDataAddress &&
+                 1                    == numBytes)
+        {
+            derialShouldFlush = true;
         }
     }
 }

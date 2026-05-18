@@ -47,13 +47,13 @@ Upon unsuccessful drive insertion/removal, an interrupt is generated with the pa
 
 #### Drive file format
 
-The manager's storage protocol identifier, drive storage protocol identifier, sector size, and sector count data is stored at bytes 0, 1, 2, and 3 of the drive file. The sectors then begin at byte 4. If the file is smaller than the size of the emulated drive, all unspecified space is assumed to be filled with zeros. The drive file will then grow once writes occur to said unspecified space. To create a new drive before starting the emulator, use `binwriter` with the following source file:
+The manager's storage protocol identifier, drive storage protocol identifier, sector size, and sector count data is stored at bytes 0, 1, 2, and 3 of the drive file. The sectors then begin at byte 4. If the file is smaller than the size of the emulated drive, all unspecified space is assumed to be filled with zeros. The drive file will then grow once writes occur to said unspecified space. To create a new drive before starting the emulator, use the following source code in `dssembly`:
 
 ```
-01 // Manager storage protocol identifier, constant
-02 // Drive storage protocol identifier, constant
-09 // Sector size,  0x09 -> 512
-10 // Sector count, 0x10 -> 65536
+.set 1 1  // Manager storage protocol identifier, constant
+.set 1 2  // Drive storage protocol identifier, constant
+.set 1 9  // Sector size,  9  -> 512
+.set 1 16 // Sector count, 16 -> 65536
 ```
 
 #### Boot behaviour

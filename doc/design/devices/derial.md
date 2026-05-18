@@ -8,17 +8,20 @@ A d-grade serial interface
 | ------------------- | ----------------------------------- | ------ |
 |                   0 | Peripheral type identifier = 0x53   |     RO |
 |                   1 | Serial protocol identifier = 0x01   |     RO |
-|                   2 | Data inbound                        |     RO |
-|                   3 | Data outbound                       |     WO |
+|                   2 | Inbound data                        |     RO |
+|                   3 | Outbound data                       |     WO |
+|                   4 | Flush                               |     WO |
 
-## Input
+## Receiving data
 
-**Data outbound:** The byte written to this register will be output from the serial port.
+Data received will be placed in the inbound data register and an interrupt will be triggered (see below). This data must then be read before it is replaced by the next byte.
 
-## Output
+## Sending data
 
-**Data inbound:** Contains the last byte received from the serial port.
+To send data, write sequential bytes to the outbound data buffer. These written bytes will be stored in an internal buffer up to a maximum of 64 bytes, after which written data will not be stored. The buffer must then be flushed by writing any byte to the flush register. After the flush is complete, an interrupt will be triggered (see below)
 
 ## Interrupts
 
-When a new byte is received, the serial port will trigger a peripheral event interrupt after placing the data in the inbound buffer.
+***Received data:*** 0b00dddddd where d is the device ID of the device
+
+***Flush complete:*** 0b01dddddd where d is the device ID of the device

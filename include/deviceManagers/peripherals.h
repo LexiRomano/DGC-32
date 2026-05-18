@@ -81,13 +81,17 @@
 #define DBOARD_SCANCODE_NONE          0xFF
 
 // Derial
-#define DERIAL_DDAT_SIZE          4
-#define DERIAL_PERIPHERAL_TYPE_ID 0x53
-#define DERIAL_SERIAL_PROT_ID     0x01
-#define DERIAL_INBOUND_ADDRESS    2
-#define DERIAL_OUTBOUND_ADDRESS   3
+#define DERIAL_DDAT_SIZE                  5
+#define DERIAL_PERIPHERAL_TYPE_ID         0x53
+#define DERIAL_SERIAL_PROT_ID             0x01
+#define DERIAL_INBOUND_ADDRESS            2
+#define DERIAL_OUTBOUND_ADDRESS           3
+#define DERIAL_FLUSH_ADDRESS              4
 
-#define DERIAL_OUTBOUND_BUF_SIZE  32
+#define DERIAL_OUTBOUND_BUF_SIZE          64
+
+#define DERIAL_RECEIVED_INT_OVERLAY       0b00000000
+#define DERIAL_FLUSH_COMPLETE_INT_OVERLAY 0b01000000
 
 int pr_initDeviceManager(void *arg);
 
