@@ -35,7 +35,7 @@ typedef enum
 typedef enum
 {
     dts_continue,
-    dts_handleWrite,
+    dts_handleReadWrite,
     dts_kill
 } deviceThreadSemaphoreWakeReason_e;
 
@@ -66,6 +66,7 @@ typedef struct
     glfwInfo_t               glfwInfo;
 } threadArg_t;
 
+typedef void (*handleReadFP_t)(uint8_t, uint16_t, uint8_t);
 typedef void (*handleWriteFP_t)(uint8_t, uint16_t, uint8_t, void*);
 typedef void (*handleTermInFP_t)(uint8_t);
 
@@ -77,10 +78,14 @@ bool dmi_writeDeviceData(uint8_t deviceId, uint16_t deviceDataAddress, uint8_t n
 bool dmi_enqueueInterrupt(uint8_t deviceId, interruptTypes_e interruptType, uint8_t interruptParameter);
 bool dmi_writeToMemory(uint32_t address, uint8_t numBytes, void *data);
 bool dmi_readFromMemory(uint32_t address, uint8_t numBytes, void *data);
+bool dmi_bindHandleRead(uint8_t managerId, handleReadFP_t handleReadFunction);
 bool dmi_bindHandleWrite(uint8_t managerId, handleWriteFP_t handleWriteFunction);
 bool dmi_bindHandleTermIn(uint8_t managerId, handleTermInFP_t handleTermIn);
 
 // Functions to implement:
+//     void xx_handleRead(uint8_t deviceId, uint16_t deviceDataAddress, uint8_t numBytes);
+//     // This runs on the processor's thread, must not use any system calls or wait for a mutex
+//
 //     void xx_handleWrite(uint8_t deviceId, uint16_t deviceDataAddress, uint8_t numBytes, void *data);
 //     // This runs on the processor's thread, must not use any system calls or wait for a mutex
 //
@@ -89,7 +94,8 @@ bool dmi_bindHandleTermIn(uint8_t managerId, handleTermInFP_t handleTermIn);
 //     // This runs on the motherboard's thread, no restrictions on performance
 //
 // Then call:
-//     mb_bindHandleWrite(myThreadData.managerId, xx_handleWrite);
+//     mb_bindHandleRead  (myThreadData.managerId, xx_handleRead);
+//     mb_bindHandleWrite (myThreadData.managerId, xx_handleWrite);
 //     mb_bindHandleTermIn(myThreadData.managerId, xx_handleTermIn);
 //
 //

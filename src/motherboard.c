@@ -5,6 +5,7 @@ static thrd_t                 *managerThreads[NUM_DEVICE_MANAGERS]              
 static mtx_t                   managerThreadMutex[NUM_DEVICE_MANAGERS]          = {0};
 static cnd_t                   managerThreadWake[NUM_DEVICE_MANAGERS]           = {0};
 static deviceThreadSemaphore_t managerThreadSemaphore[NUM_DEVICE_MANAGERS]      = {0};
+static handleReadFP_t          managerHandleReadFunctions[NUM_DEVICE_MANAGERS]  = {0};
 static handleWriteFP_t         managerHandleWriteFunctions[NUM_DEVICE_MANAGERS] = {0};
 
 static handleTermInFP_t        handleTermInFP                                   = {0};
@@ -474,6 +475,23 @@ bool dmi_writeToMemory(uint32_t address, uint8_t numBytes, void *data)
 
 /*******************************************************************************
 * Interface for device managers to bind a function which will get invoked
+* whenever the processor reads from the data of one of its devices.
+*******************************************************************************/
+bool dmi_bindHandleRead(uint8_t managerId, handleReadFP_t handleReadFunction)
+{
+    if (managerId >= NUM_DEVICE_MANAGERS ||
+        NULL == handleReadFunction)
+    {
+        return false;
+    }
+
+    managerHandleReadFunctions[managerId] = handleReadFunction;
+
+    return true;
+}
+
+/*******************************************************************************
+* Interface for device managers to bind a function which will get invoked
 * whenever the processor writes to the data of one of its devices.
 *******************************************************************************/
 bool dmi_bindHandleWrite(uint8_t managerId, handleWriteFP_t handleWriteFunction)
@@ -508,6 +526,63 @@ bool dmi_bindHandleTermIn(uint8_t managerId, handleTermInFP_t handleTermIn)
 }
 
 /*******************************************************************************
+* Interface for the processor to handle reads from device data.
+*******************************************************************************/
+void mb_readFromDeviceData(uint32_t address, uint8_t size)
+{
+    mb_device_t *foundDevice = NULL;
+
+    if (address < MEMBOUND_DDAT_START ||
+        address > MEMBOUND_DDAT_END)
+    {
+        // Not read from device data
+        return;
+    }
+
+    if (address + size - 1 > MEMBOUND_DDAT_END)
+    {
+        // Read splits region boundary
+        enqueueInterrupt(INTERRUPT_CODE_MOTHERBOARD_EVENT + (0b11000000 << 8));
+        return;
+    }
+
+    mtx_lock(&deviceRegistryMutex);
+    for (mb_device_t *p = firstDeviceInMem; NULL != p; p = p->nextInMem)
+    {
+        if (address >= p->startLocation &&
+            address + size - 1 <= p->startLocation + p->size - 1)
+        {
+            foundDevice = p;
+            break;
+        }
+
+        if (address < p->startLocation)
+        {
+            break;
+        }
+    }
+
+    if (NULL == foundDevice)
+    {
+        // Invalid memory region
+        enqueueInterrupt(INTERRUPT_CODE_MOTHERBOARD_EVENT + (0b11000000 << 8));
+        mtx_unlock(&deviceRegistryMutex);
+        return;
+    }
+
+    if (NULL != managerHandleReadFunctions[foundDevice->managerId])
+    {
+        managerHandleReadFunctions[foundDevice->managerId](foundDevice->deviceId, 
+                                                            address - foundDevice->startLocation,
+                                                            size);
+    }
+
+    wakerTodo[foundDevice->deviceId] = true;
+
+    mtx_unlock(&deviceRegistryMutex);
+}
+
+/*******************************************************************************
 * Interface for the processor to handle writes to device data.
 *******************************************************************************/
 void mb_writeToDeviceData(uint32_t address, uint8_t size, void *data)
@@ -524,7 +599,7 @@ void mb_writeToDeviceData(uint32_t address, uint8_t size, void *data)
     if (address + size - 1 > MEMBOUND_DDAT_END)
     {
         // Write splits region boundary
-        enqueueInterrupt(INTERRUPT_CODE_MOTHERBOARD_EVENT + 0b00001000);
+        enqueueInterrupt(INTERRUPT_CODE_MOTHERBOARD_EVENT + (0b11000000 << 8));
         return;
     }
     mtx_lock(&deviceRegistryMutex);
@@ -607,7 +682,7 @@ static int wakerThreadFunction(void *arg)
             managerId = deviceMappingData[i]->managerId;
 
             mtx_lock(&(managerThreadMutex[managerId]));
-            managerThreadSemaphore[managerId].wakeReason = dts_handleWrite;
+            managerThreadSemaphore[managerId].wakeReason = dts_handleReadWrite;
             managerThreadSemaphore[managerId].deviceId   = i;
             mtx_unlock(&(managerThreadMutex[managerId]));
 

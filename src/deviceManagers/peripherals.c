@@ -70,10 +70,20 @@ static int glfwKeyTokensForDboard[][2] =
    {GLFW_KEY_RIGHT_ALT,     DBOARD_SCANCODE_RALT}
 };
 
+// Derial
 static uint8_t derialDeviceId                                  = NEW_DEVICE_REQUEST_FAILED;
 static uint8_t derialOutboundBuffer[DERIAL_OUTBOUND_BUF_SIZE]  = {0};
 static uint8_t derialOutboundBufferHead                        = 0;
 static bool    derialShouldFlush                               = false;
+
+static bool derialConfigIntOnFlush = false;
+static bool derialConfigAutoFlush  = false;
+static bool derialConfigIntOnRcv   = true;
+
+static bool derialStatusBufNotEmpty = false;
+static bool derialStatusBufFull     = false;
+static bool derialStatusInboudReady = false;
+static bool derialStatusRcvMissed   = false;
 
 
 static void pr_dboardHandleKeyPress(GLFWwindow* window, int key, int scancode, int action, int mods)
@@ -97,33 +107,96 @@ static void pr_dboardHandleKeyPress(GLFWwindow* window, int key, int scancode, i
     }
 }
 
+static void pr_derialUpdateConfig(uint8_t configData)
+{
+    derialConfigIntOnFlush = 0 != (configData & DERIAL_CONFIG_INT_ON_FLUSH_MASK);
+    derialConfigAutoFlush  = 0 != (configData & DERIAL_CONFIG_AUTO_FLUSH_MASK);
+    derialConfigIntOnRcv   = 0 != (configData & DERIAL_CONFIG_INT_ON_RCV_MASK);
+}
+
+static bool pr_derialUpdateStatus()
+{
+    uint8_t buf8 = 0;
+
+    if (derialStatusBufNotEmpty)
+    {
+        buf8 |= DERIAL_STATUS_BUF_NOT_EMPTY_MASK;
+    }
+
+    if (derialStatusBufFull)
+    {
+        buf8 |= DERIAL_STATUS_BUF_FULL_MASK;
+    }
+
+    if (derialStatusInboudReady)
+    {
+        buf8 |= DERIAL_STATUS_INBOUND_READY_MASK;
+    }
+
+    if (derialStatusRcvMissed)
+    {
+        buf8 |= DERIAL_STATUS_RCV_MISSED_MASK;
+    }
+
+    return dmi_writeDeviceData(derialDeviceId,
+                               DERIAL_STATUS_ADDRESS,
+                               1,
+                               &buf8);
+}
+
 static void pr_derialHandleTermIn(uint8_t data)
 {
-    if (false != dmi_writeDeviceData(derialDeviceId, DERIAL_INBOUND_ADDRESS, 1, &data))
+    if (false == dmi_writeDeviceData(derialDeviceId, DERIAL_INBOUND_ADDRESS, 1, &data))
+    {
+        return;
+    }
+
+    if (derialStatusInboudReady)
+    {
+        derialStatusRcvMissed = true;
+    }
+    derialStatusInboudReady = true;
+
+    if (false == pr_derialUpdateStatus())
+    {
+        return;
+    }
+
+    if (derialConfigIntOnRcv)
     {
         dmi_enqueueInterrupt(derialDeviceId, it_peripheralEvent, DERIAL_RECEIVED_INT_OVERLAY);
     }
 }
 
-static void pr_derialHandleWrite()
+static void pr_derialHandleReadWrite()
 {
-    if (false == derialShouldFlush)
+    if (derialShouldFlush)
     {
-        return;
+        derialShouldFlush = false;
+
+        for (uint8_t i = 0; i < derialOutboundBufferHead; i++)
+        {
+            printf("%c", derialOutboundBuffer[i]);
+        }
+
+        derialOutboundBufferHead = 0;
+        fflush(stdout);
+
+        // Clear buf not empty and buf full status
+        derialStatusBufNotEmpty = false;
+        derialStatusBufFull     = false;
+
+        if (false == pr_derialUpdateStatus())
+        {
+            return;
+        }
+
+        // Enqueue interrupt
+        if (derialConfigIntOnFlush)
+        {
+            dmi_enqueueInterrupt(derialDeviceId, it_peripheralEvent, DERIAL_FLUSH_COMPLETE_INT_OVERLAY);
+        }
     }
-
-    derialShouldFlush = false;
-
-    for (uint8_t i = 0; i < derialOutboundBufferHead; i++)
-    {
-        printf("%c", derialOutboundBuffer[i]);
-    }
-
-    dmi_enqueueInterrupt(derialDeviceId, it_peripheralEvent, DERIAL_FLUSH_COMPLETE_INT_OVERLAY);
-
-
-    derialOutboundBufferHead = 0;
-    fflush(stdout);
 }
 
 static bool pr_initDboardScancodeMappings()
@@ -137,7 +210,6 @@ static bool pr_initDboardScancodeMappings()
 
     for (uint8_t i = 0; i < sizeof(glfwKeyTokensForDboard) / (2 * sizeof(int)); i++)
     {
-        
         systemScancode = glfwGetKeyScancode(glfwKeyTokensForDboard[i][0]);
 
         if (systemScancode < 0)
@@ -158,6 +230,25 @@ static bool pr_initDboardScancodeMappings()
     return true;
 }
 
+static void pr_handleRead(uint8_t deviceId, uint16_t deviceDataAddress, uint8_t numBytes)
+{
+    if (derialDeviceId == deviceId)
+    {
+        if (1 != numBytes)
+        {
+            return;
+        }
+
+        if (DERIAL_INBOUND_ADDRESS == deviceDataAddress)
+        {
+            derialStatusInboudReady = false;
+            derialStatusRcvMissed   = false;
+
+            (void)pr_derialUpdateStatus();
+        }
+    }
+}
+
 static void pr_handleWrite(uint8_t deviceId, uint16_t deviceDataAddress, uint8_t numBytes, void *data)
 {
     if (dboardDeviceId == deviceId)
@@ -169,18 +260,47 @@ static void pr_handleWrite(uint8_t deviceId, uint16_t deviceDataAddress, uint8_t
     }
     else if (derialDeviceId == deviceId)
     {
-        if (DERIAL_OUTBOUND_ADDRESS == deviceDataAddress &&
-            1                       == numBytes &&
-            derialOutboundBufferHead < DERIAL_OUTBOUND_BUF_SIZE)
+        // All writes only make sense for 1 byte
+        if (1 != numBytes)
         {
-            derialOutboundBuffer[derialOutboundBufferHead] = *((uint8_t*) data);
-
-            derialOutboundBufferHead = derialOutboundBufferHead + 1;
+            return;
         }
-        else if (DERIAL_FLUSH_ADDRESS == deviceDataAddress &&
-                 1                    == numBytes)
+
+        if (DERIAL_OUTBOUND_ADDRESS == deviceDataAddress)
+        {
+            // Skip if buffer is full
+            if (derialOutboundBufferHead == DERIAL_OUTBOUND_BUF_SIZE)
+            {
+                return;
+            }
+
+            derialOutboundBuffer[derialOutboundBufferHead++] = *((uint8_t*) data);
+
+            // Updating status
+            derialStatusBufNotEmpty = true;
+            if (DERIAL_OUTBOUND_BUF_SIZE == derialOutboundBufferHead)
+            {
+                derialStatusBufFull = true;
+            }
+
+            if (false == pr_derialUpdateStatus())
+            {
+                return;
+            }
+
+            // Auto flush
+            if (derialConfigAutoFlush)
+            {
+                derialShouldFlush = true;
+            }
+        }
+        else if (DERIAL_FLUSH_ADDRESS == deviceDataAddress)
         {
             derialShouldFlush = true;
+        }
+        else if (DERIAL_CONFIG_ADDRESS == deviceDataAddress)
+        {
+            pr_derialUpdateConfig(*((uint8_t*) data));
         }
     }
 }
@@ -225,10 +345,16 @@ int pr_initDeviceManager(void *arg)
         return -1;
     }
 
-    dmi_bindHandleTermIn(myThreadData.managerId, pr_derialHandleTermIn);
-
-    // Bind the read handler
-    dmi_bindHandleWrite(myThreadData.managerId, pr_handleWrite);
+    // Bind the read/write handlers
+    if (false == dmi_bindHandleTermIn(myThreadData.managerId, pr_derialHandleTermIn) ||
+        false == dmi_bindHandleRead  (myThreadData.managerId, pr_handleRead)         ||
+        false == dmi_bindHandleWrite (myThreadData.managerId, pr_handleWrite))
+    {
+        myThreadData.semaphore->wakeReason = dts_kill;
+        cnd_signal(myThreadData.wakeCondition);
+        mtx_unlock(myThreadData.mutex);
+        return -1;
+    }
 
     cnd_signal(myThreadData.wakeCondition);
 
@@ -240,10 +366,10 @@ int pr_initDeviceManager(void *arg)
         {
             case dts_kill:
                 return 0;
-            case dts_handleWrite:
+            case dts_handleReadWrite:
                 if (myThreadData.semaphore->deviceId == derialDeviceId)
                 {
-                    pr_derialHandleWrite();
+                    pr_derialHandleReadWrite();
                 }
                 break;
             case dts_continue:

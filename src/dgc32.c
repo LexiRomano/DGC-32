@@ -151,6 +151,7 @@ static bool init(int argc, char* argv[])
     char              *storageDeviceFileNames[MAX_INITIAL_STORAGE_DEVICES] = {0};
     externalFileInfo_t motherboardInitParams                               = {0};
     uint8_t            argumentIndex                                       = 1;
+    const char*        glfwErrorCode                                       = NULL;
 
     // Init the interrupt access mutex
     mtx_init(&interruptAccessMutex, mtx_plain);
@@ -266,7 +267,8 @@ static bool init(int argc, char* argv[])
 
     if (NULL == glfwInfo.window)
     {
-        printf("Failed to create GLFW window\n");
+        (void) glfwGetError(&glfwErrorCode);
+        printf("Failed to create GLFW window: %s\n", glfwErrorCode);
         return false;
     }
 
@@ -382,7 +384,8 @@ static void transferMemToReg(uint8_t toRegsel, uint32_t fromAddress, uint8_t ins
                     *reg32 = *reg32 << 24;
             }
             
-            return;
+            break;
+
         case 2:
             reg16 = regMap2[toRegsel];
             switch (insAug & INS_AUG_WORD_SIZE_MASK)
@@ -412,7 +415,8 @@ static void transferMemToReg(uint8_t toRegsel, uint32_t fromAddress, uint8_t ins
                     *reg16 = *reg16 << 24;
             }
             
-            return;
+            break;
+
         case 1:
             reg8 = regMap1[toRegsel];
             switch (insAug & INS_AUG_WORD_SIZE_MASK)
@@ -442,6 +446,22 @@ static void transferMemToReg(uint8_t toRegsel, uint32_t fromAddress, uint8_t ins
                     *reg8 = *reg8 << 24;
             }
             
+            break;
+    }
+
+    switch (insAug & INS_AUG_WORD_SIZE_MASK)
+    {
+        case INS_AUG_WORD_SIZE_4:
+        case INS_AUG_WORD_SIZE_INVALID:
+            mb_readFromDeviceData(fromAddress, 4);
+            return;
+
+        case INS_AUG_WORD_SIZE_2:
+            mb_readFromDeviceData(fromAddress, 2);
+            return;
+
+        case INS_AUG_WORD_SIZE_1:
+            mb_readFromDeviceData(fromAddress, 1);
             return;
     }
 }

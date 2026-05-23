@@ -643,7 +643,7 @@ int st_initDeviceManager(void *arg)
         {
             case dts_kill:
                 return 0;
-            case dts_handleWrite:
+            case dts_handleReadWrite:
                 if (myThreadData.semaphore->deviceId == driveManagerId)
                 {
                     st_handleManagerWriteWake();

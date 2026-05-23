@@ -37,7 +37,7 @@ int ddm_initDeviceManager(void *arg)
         {
             case dts_kill:
                 return 0;
-            case dts_handleWrite:
+            case dts_handleReadWrite:
             case dts_continue:
                 break;
         }
