@@ -2,14 +2,23 @@
 
 threadArg_t myThreadData = {0};
 
+// Drive manager
 static uint8_t driveManagerId = 0;
 static bool    insertNewDrive      = false;
 static bool    insertExistingDrive = false;
 static bool    removeDrive         = false;
 
+static bool driveManagerConfigIntEn      = true;
+static bool driveManagerStatusInProgress = false;
+static bool driveManagerStatusFailed     = false;
+
+// Individual drives
 static driveData_t *driveData[DARDRIVE_MAX_DRIVE_COUNT]  = {0};
 static bool         driveRead[DARDRIVE_MAX_DRIVE_COUNT]  = {0};
 static bool         driveWrite[DARDRIVE_MAX_DRIVE_COUNT] = {0};
+
+static bool          driveConfigIntEn[DARDRIVE_MAX_DRIVE_COUNT] = {0};
+static driveStatus_t driveStatus[DARDRIVE_MAX_DRIVE_COUNT]      = {0};
 
 // Returns 0xFF if not found
 static uint8_t st_deviceIdToDriveIndex(uint8_t deviceId)
@@ -26,6 +35,59 @@ static uint8_t st_deviceIdToDriveIndex(uint8_t deviceId)
     }
 
     return 0xFF;
+}
+
+static void st_updateManagerConfig(uint8_t newConfig)
+{
+    driveManagerConfigIntEn = 0 != (newConfig & DARDRIVE_M_CONFIG_INT_EN_MASK);
+}
+
+static bool st_updateManagerStatus()
+{
+    uint8_t buf = 0;
+
+    if (driveManagerStatusInProgress)
+    {
+        buf |= DARDRIVE_M_STATUS_IN_PROGRESS_MASK;
+    }
+
+    if (driveManagerStatusFailed)
+    {
+        buf |= DARDRIVE_M_STATUS_FAILED_MASK;
+    }
+
+    return dmi_writeDeviceData(driveManagerId, DARDRIVE_M_STATUS_ADDRESS, 1, &buf);
+}
+
+static void st_updateDriveConfig(uint8_t driveId, uint8_t newConfig)
+{
+    if (driveId >= DARDRIVE_MAX_DRIVE_COUNT)
+    {
+        return;
+    }
+    driveConfigIntEn[driveId] = 0 != (newConfig & DARDRIVE_D_CONFIG_INT_EN_MASK);
+}
+
+static bool st_updateDriveStatus(uint8_t driveId)
+{
+    uint8_t buf = 0;
+
+    if (driveStatus[driveId].inProgress)
+    {
+        buf |= DARDRIVE_D_STATUS_IN_PROGRESS_MASK;
+    }
+
+    if (driveStatus[driveId].failed)
+    {
+        buf |= DARDRIVE_D_STATUS_FAILED_MASK;
+    }
+
+    if (NULL == driveData[driveId])
+    {
+        return false;
+    }
+
+    return dmi_writeDeviceData(driveData[driveId]->deviceId, DARDRIVE_D_STATUS_ADDRESS, 1, &buf);
 }
 
 static void st_handleWrite(uint8_t deviceId, uint16_t deviceDataAddress, uint8_t numBytes, void *data)
@@ -52,7 +114,18 @@ static void st_handleWrite(uint8_t deviceId, uint16_t deviceDataAddress, uint8_t
                 case 2:
                     removeDrive = true;
                     break;
+                default:
+                    return;
             }
+
+            driveManagerStatusInProgress = true;
+            driveManagerStatusFailed     = false;
+            st_updateManagerStatus();
+        }
+        else if (DARDRIVE_M_CONFIG_ADDRESS == deviceDataAddress &&
+                 1                         == numBytes)
+        {
+            st_updateManagerConfig(*((uint8_t*) data));
         }
     }
     else
@@ -60,6 +133,10 @@ static void st_handleWrite(uint8_t deviceId, uint16_t deviceDataAddress, uint8_t
         if (deviceDataAddress <= DARDRIVE_D_SECTOR_COUNT_ADDRESS)
         {
             driveIndex = st_deviceIdToDriveIndex(deviceId);
+            if (0xFF == driveIndex)
+            {
+                return;
+            }
             dmi_writeDeviceData(deviceId, 0, 3, (uint8_t[]) {DARDRIVE_D_SPI,
                                                              driveData[driveIndex]->sectorSize,
                                                              driveData[driveIndex]->sectorCount});
@@ -68,6 +145,11 @@ static void st_handleWrite(uint8_t deviceId, uint16_t deviceDataAddress, uint8_t
                  1                           == numBytes)
         {
             driveIndex = st_deviceIdToDriveIndex(deviceId);
+
+            if (0xFF == driveIndex)
+            {
+                return;
+            }
 
             switch (*((uint8_t*) data))
             {
@@ -78,6 +160,22 @@ static void st_handleWrite(uint8_t deviceId, uint16_t deviceDataAddress, uint8_t
                     driveWrite[driveIndex] = true;
                     break;
             }
+
+            driveStatus[driveIndex].inProgress = true;
+            driveStatus[driveIndex].failed     = false;
+            st_updateDriveStatus(driveIndex);
+        }
+        else if (DARDRIVE_D_CONFIG_ADDRESS == deviceDataAddress &&
+                 1                         == numBytes)
+        {
+            driveIndex = st_deviceIdToDriveIndex(deviceId);
+
+            if (0xFF == driveIndex)
+            {
+                return;
+            }
+
+            st_updateDriveConfig(driveIndex, *((uint8_t*) data));
         }
     }
 }
@@ -173,6 +271,8 @@ static bool st_insertNewDrive(char *fileName, uint8_t sectorSize, uint8_t sector
     }
 
     driveData[newDriveIndex] = newDriveData;
+    
+    driveConfigIntEn[newDriveIndex] = true;
 
     return true;
 }
@@ -258,6 +358,8 @@ static bool st_insertExistingDriveFile(char *fileName)
 
     driveData[newDriveIndex] = newDriveData;
 
+    driveConfigIntEn[newDriveIndex] = true;
+
     return true;
 }
 
@@ -279,7 +381,34 @@ static bool st_removeDrive(uint8_t driveDeviceId)
     return true;
 }
 
-static void st_handleManagerWriteWake()
+static void st_completeManagerTransaction(bool success)
+{
+    driveManagerStatusInProgress = false;
+
+    if (false == success)
+    {
+        driveManagerStatusFailed = true;
+    }
+
+    if (false == st_updateManagerStatus())
+    {
+        return;
+    }
+
+    if (driveManagerConfigIntEn)
+    {
+        if (success)
+        {
+            dmi_enqueueInterrupt(driveManagerId, it_storageEvent, 0);
+        }
+        else
+        {
+            dmi_enqueueInterrupt(driveManagerId, it_storageEvent, DARDRIVE_M_FAILURE_OVERLAY);
+        }
+    }
+}
+
+static void st_handleManagerReadWriteWake()
 {
     uint8_t  ddatBuf[DARDRIVE_M_DDAT_SIZE]                  = {0};
     uint8_t  fileNameBuf[DARDRIVE_M_MAX_FILE_NAME_SIZE + 1] = {0};
@@ -309,16 +438,9 @@ static void st_handleManagerWriteWake()
             return;
         }
     
-        if (true == st_insertNewDrive((char *) fileNameBuf,
-                                      ddatBuf[DARDRIVE_M_SECTOR_SIZE_ADDRESS],
-                                      ddatBuf[DARDRIVE_M_SECTOR_COUNT_ADDRESS]))
-        {
-            dmi_enqueueInterrupt(driveManagerId, it_storageEvent, 0);
-        }
-        else
-        {
-            dmi_enqueueInterrupt(driveManagerId, it_storageEvent, DARDRIVE_M_FAILURE_OVERLAY);
-        }
+        st_completeManagerTransaction(st_insertNewDrive((char *) fileNameBuf,
+                                                        ddatBuf[DARDRIVE_M_SECTOR_SIZE_ADDRESS],
+                                                        ddatBuf[DARDRIVE_M_SECTOR_COUNT_ADDRESS]));
     }
     else if (insertExistingDrive)
     {
@@ -332,31 +454,43 @@ static void st_handleManagerWriteWake()
             return;
         }
 
-        if (true == st_insertExistingDriveFile((char *) fileNameBuf))
-        {
-            dmi_enqueueInterrupt(driveManagerId, it_storageEvent, 0);
-        }
-        else
-        {
-            dmi_enqueueInterrupt(driveManagerId, it_storageEvent, DARDRIVE_M_FAILURE_OVERLAY);
-        }
+        st_completeManagerTransaction(st_insertExistingDriveFile((char *) fileNameBuf));
     }
     else
     {
         removeDrive = false;
 
-        if (true == st_removeDrive(ddatBuf[DARDRIVE_M_DRIVE_ID_ADDRESS]))
-        {
-            dmi_enqueueInterrupt(driveManagerId, it_storageEvent, 0);
-        }
-        else
-        {
-            dmi_enqueueInterrupt(driveManagerId, it_storageEvent, DARDRIVE_M_FAILURE_OVERLAY);
-        }
+        st_completeManagerTransaction(st_removeDrive(ddatBuf[DARDRIVE_M_DRIVE_ID_ADDRESS]));
     }
 }
 
-static void st_handleDiskWriteWake(uint8_t deviceId)
+static void st_completeDriveTransaction(uint8_t driveId, bool success)
+{
+    if (driveId >= DARDRIVE_MAX_DRIVE_COUNT)
+    {
+        return;
+    }
+
+    driveStatus[driveId].inProgress = false;
+
+    if (false == success)
+    {
+        driveStatus[driveId].failed = true;
+    }
+    else
+    {
+        driveStatus[driveId].failed = false;
+    }
+
+    st_updateDriveStatus(driveId);
+
+    if (driveConfigIntEn[driveId])
+    {
+        dmi_enqueueInterrupt(driveData[driveId]->deviceId, it_storageEvent, success ? 0 : DARDRIVE_D_FAILURE_OVERLAY);
+    }
+}
+
+static void st_handleDiskReadWriteWake(uint8_t deviceId)
 {
     uint8_t      driveIndex                    = 0xFF;
     uint8_t      ddatBuf[DARDRIVE_D_DDAT_SIZE] = {0};
@@ -398,7 +532,7 @@ static void st_handleDiskWriteWake(uint8_t deviceId)
 
     if (false == dmi_readDeviceData(deviceId, 0, DARDRIVE_D_DDAT_SIZE, ddatBuf))
     {
-        dmi_enqueueInterrupt(deviceId, it_storageEvent, DARDRIVE_D_FAILURE_OVERLAY);
+        st_completeDriveTransaction(driveIndex, false);
         return;
     }
 
@@ -411,7 +545,7 @@ static void st_handleDiskWriteWake(uint8_t deviceId)
     if (NULL == driveToHandle->fileName ||
         selectedSector >= maxSectorCount)
     {
-        dmi_enqueueInterrupt(deviceId, it_storageEvent, DARDRIVE_D_FAILURE_OVERLAY);
+        st_completeDriveTransaction(driveIndex, false);
         return;
     }
 
@@ -429,14 +563,13 @@ static void st_handleDiskWriteWake(uint8_t deviceId)
 
         if (NULL == fd)
         {
-            dmi_enqueueInterrupt(deviceId, it_storageEvent, DARDRIVE_D_FAILURE_OVERLAY);
+            st_completeDriveTransaction(driveIndex, false);
             return;
         }
 
         if (-1 == fseek(fd, addressOnFile, SEEK_SET))
         {
-            fclose(fd);
-            dmi_enqueueInterrupt(deviceId, it_storageEvent, DARDRIVE_D_FAILURE_OVERLAY);
+            st_completeDriveTransaction(driveIndex, false);
             return;
         }
 
@@ -449,7 +582,7 @@ static void st_handleDiskWriteWake(uint8_t deviceId)
                 if (0 == ferror(fd))
                 {
                     fclose(fd);
-                    dmi_enqueueInterrupt(deviceId, it_storageEvent, DARDRIVE_D_FAILURE_OVERLAY);
+                    st_completeDriveTransaction(driveIndex, false);
                     return;
                 }
 
@@ -460,7 +593,7 @@ static void st_handleDiskWriteWake(uint8_t deviceId)
 
             if (false == dmi_writeToMemory(addressInMemory, sectorSize, buf))
             {
-                dmi_enqueueInterrupt(deviceId, it_storageEvent, DARDRIVE_D_FAILURE_OVERLAY);
+                st_completeDriveTransaction(driveIndex, false);
                 return;
             }
         }
@@ -477,7 +610,7 @@ static void st_handleDiskWriteWake(uint8_t deviceId)
                         if (0 != ferror(fd))
                         {
                             fclose(fd);
-                            dmi_enqueueInterrupt(deviceId, it_storageEvent, DARDRIVE_D_FAILURE_OVERLAY);
+                            st_completeDriveTransaction(driveIndex, false);
                             return;
                         }
 
@@ -488,7 +621,7 @@ static void st_handleDiskWriteWake(uint8_t deviceId)
                     if (false == dmi_writeToMemory(addressInMemory, 128, buf))
                     {
                         fclose(fd);
-                        dmi_enqueueInterrupt(deviceId, it_storageEvent, DARDRIVE_D_FAILURE_OVERLAY);
+                        st_completeDriveTransaction(driveIndex, false);
                         return;
                     }
 
@@ -502,7 +635,7 @@ static void st_handleDiskWriteWake(uint8_t deviceId)
                     if (false == dmi_writeToMemory(addressInMemory, 128, buf))
                     {
                         fclose(fd);
-                        dmi_enqueueInterrupt(deviceId, it_storageEvent, DARDRIVE_D_FAILURE_OVERLAY);
+                        st_completeDriveTransaction(driveIndex, false);
                         return;
                     }
                 }
@@ -519,14 +652,14 @@ static void st_handleDiskWriteWake(uint8_t deviceId)
 
         if (NULL == fd)
         {
-            dmi_enqueueInterrupt(deviceId, it_storageEvent, DARDRIVE_D_FAILURE_OVERLAY);
+            st_completeDriveTransaction(driveIndex, false);
             return;
         }
 
         if (-1 == fseek(fd, addressOnFile, SEEK_SET))
         {
             fclose(fd);
-            dmi_enqueueInterrupt(deviceId, it_storageEvent, DARDRIVE_D_FAILURE_OVERLAY);
+            st_completeDriveTransaction(driveIndex, false);
             return;
         }
 
@@ -534,14 +667,14 @@ static void st_handleDiskWriteWake(uint8_t deviceId)
         {
             if (false == dmi_readFromMemory(addressInMemory, sectorSize, buf))
             {
-                dmi_enqueueInterrupt(deviceId, it_storageEvent, DARDRIVE_D_FAILURE_OVERLAY);
+                st_completeDriveTransaction(driveIndex, false);
                 return;
             }
 
             if (sectorSize != fwrite(buf, 1, sectorSize, fd))
             {
                 fclose(fd);
-                dmi_enqueueInterrupt(deviceId, it_storageEvent, DARDRIVE_D_FAILURE_OVERLAY);
+                st_completeDriveTransaction(driveIndex, false);
                 return;
             }
 
@@ -554,14 +687,14 @@ static void st_handleDiskWriteWake(uint8_t deviceId)
                 if (false == dmi_readFromMemory(addressInMemory, 128, buf))
                 {
                     fclose(fd);
-                    dmi_enqueueInterrupt(deviceId, it_storageEvent, DARDRIVE_D_FAILURE_OVERLAY);
+                    st_completeDriveTransaction(driveIndex, false);
                     return;
                 }
 
                 if (128 != fread(buf, 1, sectorSize, fd))
                 {
                     fclose(fd);
-                    dmi_enqueueInterrupt(deviceId, it_storageEvent, DARDRIVE_D_FAILURE_OVERLAY);
+                    st_completeDriveTransaction(driveIndex, false);
                     return;
                 }
 
@@ -572,7 +705,7 @@ static void st_handleDiskWriteWake(uint8_t deviceId)
         }
     }
 
-    dmi_enqueueInterrupt(deviceId, it_storageEvent, 0);
+    st_completeDriveTransaction(driveIndex, true);
 }
 
 static void st_teardown()
@@ -646,11 +779,11 @@ int st_initDeviceManager(void *arg)
             case dts_handleReadWrite:
                 if (myThreadData.semaphore->deviceId == driveManagerId)
                 {
-                    st_handleManagerWriteWake();
+                    st_handleManagerReadWriteWake();
                 }
                 else
                 {
-                    st_handleDiskWriteWake(myThreadData.semaphore->deviceId);
+                    st_handleDiskReadWriteWake(myThreadData.semaphore->deviceId);
                 }
             case dts_continue:
                 break;

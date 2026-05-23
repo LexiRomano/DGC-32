@@ -16,6 +16,24 @@ One device entry will be made for the drive manager. This is a workaround in the
 |                   3 | Sector count (2's exponent)         |     RW |
 |                 4-7 | Name pointer                        |     RW |
 |                   8 | Initiate                            |     RW |
+|                   9 | Config                              |     RW |
+|                   A | Status                              |     RO |
+
+### Configuration
+
+**Bit 0 - enable interrupts**
+
+When this bit is set to 1, interrupts will be triggered when a transaction completes. Default to 1 (enabled)
+
+### Status
+
+**Bit 0 - transaction in progress**
+
+This bit is set when a transaction is initiated. It is cleared when a transaction completes.
+
+**Bit 1 - transaction failed**
+
+This bit is set when a transaction fails. It is cleared when a new transaction is initiated.
 
 ### Inserting a new drive
 
@@ -38,6 +56,8 @@ One device entry will be made for the drive manager. This is a workaround in the
 - Write a 2 to the initiate register.
 
 ### Interrupts
+
+**Only applicable if the `enable interrupts` config bit is set**
 
 Upon succesful drive insertion/removal, an interrupt is generated with the parameter corresponding to the device ID of the drive manager or'd with the device ID of the inserted/removed drive, shifted 3 bits left. The motherboard's device table update interrupt will occur before this interrupt, but in the case of an inserted drive, it will not be ready for use until this interrupt is enqueued.
 
@@ -74,7 +94,24 @@ A device entry will be created for each individual drive that exists on the syst
 |                 3-6 | Memory address                      |     RW |
 |                 7-A | Drive sector                        |     RW |
 |                   B | Initiate                            |     RW |
+|                   C | Config                              |     RW |
+|                   D | Status                              |     RO |
 
+### Configuration
+
+**Bit 0 - enable interrupts**
+
+When this bit is set to 1, interrupts will be triggered when a transaction completes. Default to 1 (enabled)
+
+### Status
+
+**Bit 0 - transaction in progress**
+
+This bit is set when a transaction is initiated. It is cleared when a transaction completes.
+
+**Bit 1 - transaction failed**
+
+This bit is set when a transaction fails. It is cleared when a new transaction is initiated.
 
 ### Drive read procedure
 
@@ -91,6 +128,8 @@ A device entry will be created for each individual drive that exists on the syst
 - Write a 1 to the initiate register
 
 ### Interrupts
+
+**Only applicable if the `enable interrupts` config bit is set**
 
 Upon successful completion of a drive transaction, an interrupt will be triggered with the parameter corresponding to the device ID of the drive that just completed.
 
