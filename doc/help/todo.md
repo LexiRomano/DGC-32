@@ -1,0 +1,21 @@
+# Todo
+
+- number systems (binary)
+- emulation
+- testing
+    - user testing
+    - self test
+- computer architecture basics
+- registers
+- memory
+    - RAM/ROM
+    - endianness
+    - addressing modes
+    - protected memory
+- I/O
+    - memory mapped I/O
+    - device registry
+- stack
+    - stack functions
+- interrupts
+    - interrupt table

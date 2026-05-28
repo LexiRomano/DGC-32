@@ -4,11 +4,11 @@
 
 *Note: Although the language used in these documents may suggest otherwise, a lot of the functionality described is a work in progress. Expect some things to be missing or changed in the future.*
 
-The DGC-32 is a 32-bit "D-Grade" computer architecture. It is developed as a successor to the F-Grade Computer (FGC-16), a 16-bit computer architecture also designed by myself. The philosophy behind the FGC-16 and its parent project (F-Suite) was to push the bounds of my technical knowledge and attempt to build an entire computing system from an architecture all the way up to an operating system. Understandibly, I fell just short of a kernel before realizing the flaws in the underlying architecture and had to stop due to both performance and sanity issues. The DGC-32 is the second iteration of designs, heeding the warnings of its predecessor. It has ben designed with the lessons learned from the FGC-16, my university courses, and Ben Eater osmosis. Here's hoping that this goes somewhere.
+The DGC-32 is a 32-bit "D-Grade" computer architecture. It is developed as a successor to the F-Grade Computer (FGC-16), a 16-bit computer architecture also designed by myself. The philosophy behind the FGC-16 and its parent project (F-Suite) was to push the bounds of my technical knowledge and attempt to build an entire computing system from an architecture all the way up to an operating system. Understandibly, I fell just short of a kernel before realizing the flaws in the underlying architecture and had to stop due to both performance and sanity issues. The DGC-32 is the second iteration of designs, heeding the warnings of its predecessor. It has been designed with the lessons learned from the FGC-16, my university courses, and Ben Eater osmosis. Here's hoping that this goes somewhere.
 
 ## Audience
 
-This project is designed with the intention to be accessible to those who cannot read my mind. Doing so is a challenge as I am burdened with the unending responsibility of reading my own mind. Please reffer to the Resources section for more information.
+This project is designed with the intention to be accessible to those who cannot read my mind. Doing so is a challenge as I am burdened with the unending responsibility of reading my own mind. Please refer to the Resources section for more information.
 
 ### Contributions
 

@@ -29,7 +29,7 @@ The DGC-32 shall have a stack which can be specified by software using the Stack
 
 ### Interrupts
 
-The DGC-32 shall have both hardware and software interrupts. The locations where these interrupts will be handled are identified by a table pointed to by the Interrupt Table Location (IL) register. Software shall be able to susspend, resume, trigger, and finish handling interrupts.
+The DGC-32 shall have both hardware and software interrupts. The locations where these interrupts will be handled are identified by a table pointed to by the Interrupt Table Location (IL) register. Software shall be able to suspend, resume, trigger, and finish handling interrupts.
 
 ### Input/Output
 
