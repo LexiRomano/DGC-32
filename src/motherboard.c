@@ -723,8 +723,11 @@ bool mb_init(externalFileInfo_t *externalFileInfo, glfwInfo_t *glfw, memTransFP_
     tcgetattr(0, &originalTerminalSettings);
     terminalModified = true;
 
+    setvbuf(stdout, NULL, _IONBF, 0);
+
     tcgetattr(0, &term);
-    cfmakeraw(&term);             // Make terminal raw
+    term.c_iflag &= ~(IGNBRK | BRKINT | PARMRK | ISTRIP);
+    term.c_lflag &= ~(ECHO | ECHONL | ICANON | ISIG);
     term.c_cc[VMIN] = 0;          // Don't wait for any keystrokes
     term.c_cc[VTIME] = 0;
     tcsetattr(0, TCSANOW, &term); // set immediately

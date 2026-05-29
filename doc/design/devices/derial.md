@@ -54,7 +54,7 @@ This bit is set to 1 when two consecutive bytes have been receivedwithout the `i
 
 ## Receiving data
 
-Data received will be placed in the `inbound data` register and the `inbound data ready` status bit will be set to 1. If the `interrupt on data received` config bit is set, the `data received` interrupt will be triggered. This data must then be read from the `inbound data` register before another byte is received, or else the data will be lost and the `missed received byte` will be set to 1.
+Data received will be placed in the `inbound data` register and the `inbound data ready` status bit will be set to 1. If the `interrupt on data received` config bit is set, the `data received` interrupt will be triggered. This data must then be read from the `inbound data` register before another byte is received, or else the data will be lost and the `missed received byte` will be set to 1. There is a minimum 10 microsecond delay between consecutively received characters.
 
 ## Sending data
 

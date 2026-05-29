@@ -159,6 +159,7 @@ static void pr_derialHandleTermIn(uint8_t data)
 
     if (false == pr_derialUpdateStatus())
     {
+        usleep(10);
         return;
     }
 
@@ -166,6 +167,8 @@ static void pr_derialHandleTermIn(uint8_t data)
     {
         dmi_enqueueInterrupt(derialDeviceId, it_peripheralEvent, DERIAL_RECEIVED_INT_OVERLAY);
     }
+
+    usleep(10);
 }
 
 static void pr_derialHandleReadWrite()
@@ -180,7 +183,6 @@ static void pr_derialHandleReadWrite()
         }
 
         derialOutboundBufferHead = 0;
-        fflush(stdout);
 
         // Clear buf not empty and buf full status
         derialStatusBufNotEmpty = false;
