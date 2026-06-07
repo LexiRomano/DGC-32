@@ -32,7 +32,7 @@ The dboard will trigger keyboard interrupts based on pressed keys with the follo
 | 0x2C      | .         |
 | 0x2D      | /         |
 | 0x2E      | `         |
-| 0x3F      | LCTRL     |
+| 0x2F      | LCTRL     |
 | 0x30      | LSHIFT    |
 | 0x31      | LALT      |
 | 0x32      | TAB       |
