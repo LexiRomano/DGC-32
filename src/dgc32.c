@@ -109,6 +109,28 @@ uint8_t criticalInterruptIDs[] =
     0x09  // Memory violation
 };
 
+#ifdef USER_TEST
+char *regselNames[] =
+{
+    "G0",
+    "G1",
+    "G2",
+    "G3",
+    "G4",
+    "G5",
+    "G6",
+    "G7",
+    "OA",
+    "OB",
+    "OC",
+    "SB",
+    "SS",
+    "SP",
+    "IL",
+    "FL"
+};
+#endif // USER_TEST
+
 // GLFW data
 static glfwInfo_t glfwInfo = {0};
 
@@ -1227,6 +1249,13 @@ static void run()
         switch (OP_CODE_GET_BASE(instructionRegister))
         {
             case OP_CODE_NOOP:
+                #ifdef USER_TEST
+                if (OP_CODE_DEBG == OP_CODE_GET_FULL(instructionRegister))
+                {
+                    tmp1 = getValFromRegsel(REGSEL_1_GET(instructionRegister));
+                    printf("DGC-32 DEBUG: %s = 0x%08x\n", regselNames[REGSEL_1_GET(instructionRegister)], tmp1);
+                }
+                #endif //USER_TEST
                 programCounter+=4;
                 break;
 

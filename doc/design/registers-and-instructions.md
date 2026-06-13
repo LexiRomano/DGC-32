@@ -149,6 +149,7 @@ Form 7:
 | Name | Description                                | Op select code | Form  | Arg augment? | Instruction augment? |
 | ---- | ------------------------------------------ | -------------- | ----- | ------------ | -------------------- |
 | NOOP | do nothing                                 | 0x00           | 6     |              |                      |
+| DEBG | Debug print (user test only)               | 0x10           | 4     |              |                      |
 | INTR | interrupt utilities                        | 0xZ1*          | 4/6/7 |              |                      |
 | LOAD | load from memory to a register             | 0x02           | 2     |              | Y                    |
 | .    | .                                          | 0x03           | 4     | Y            | Y                    |

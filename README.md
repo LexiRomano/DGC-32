@@ -20,8 +20,6 @@ This project uses GLFW. On linux you must install the package `libglfw3-dev`.
 
 ## Usage
 
-*WIP, some makes do not exist yet*
-
 Here are the different ways to make the executables in this project:
 ```
 bash$ ./make.sh             # Regular dgc32 executable
@@ -40,9 +38,12 @@ bash$ ./dgc32 <romFile> [diskFile [diskFile...]]
 ### Dssembly
 
 Dssembly is the assembly language and assembler corresponding to the DGC-32 proccessor. It is in its own repository labeled as such and is developed in parallel with this emulator. It is the suggested way to write programs for the DGC-32. After writing your dssembly program, you can assemble it as such:
+
 ```
-bash$ ./dssembly <inputSrcFile> <outputBinaryFile>
+bash$ ./dssembly -r <inputSrcFile> <outputBinaryFile>
 ```
+
+More advanced assembly programs can be made with configuration files. See [Dssembly](https://github.com/LexiRomano/Dssembly) for more information.
 
 ### Binwriter
 

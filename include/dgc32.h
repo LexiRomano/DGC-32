@@ -34,6 +34,8 @@
 // Op code defs
 #define OP_CODE_NOOP 0x00
 
+#define OP_CODE_DEBG 0x10
+
 #define OP_CODE_INTR_BASE         0x01
 #define OP_CODE_INTR_SUS_VARI     0x00
 #define OP_CODE_INTR_RES_VARI     0x10
