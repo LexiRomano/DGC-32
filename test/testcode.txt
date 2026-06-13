@@ -190,7 +190,7 @@
     MOVE          G0 0x7777     // frame 164
     STOR-ABS      G1 0x60FF     // frame 165
     MOVE          G0 0x8888     // frame 168
-    STOR-ABS      G1 0x6100     // frame 169
+    STOR-W1S0-ABS G1 0x6100     // frame 169
     MOVE          G0 0x9999     // frame 170
     BRAL          continue      // frame 171
 
@@ -210,8 +210,41 @@
     LOAD-OB       G1 2          // frame 177
 
     MOVE          G0 2          // frame 178
-    STOR-W1S0-ABS G0 0x10000    // frame 179
+    STOR-W1S0-ABS G0 0x8000     // frame 179
     MOVE          G0 1          // frame 180
-    SWAP-W1S0-ABS G0 0x10000    // frame 181
-    MOVE          G1 0x10000    // frame 182
+    SWAP-W1S0-ABS G0 0x8000     // frame 181
+    MOVE          G1 0x8000     // frame 182
     SWAP-W1S0-ABS G0 G1         // frame 183
+
+    MOVE          OA IL         // frame 184
+    GETABS        G0 int1       // frame 185
+    STOR-OA       G0 0x100      // frame 186
+    GETABS        G0 int2       // frame 187
+    STOR-OA       G0 0x104      // frame 188
+    // Forgot to resume interrupts
+    // back at frame 121, fix here :/
+    INTRES                      // frame 189
+    INTTRG        0x0040        // frame 190
+    MOVE          G0 0x7777     // frame 201
+    BRAL          cont          // frame 202
+
+:diff
+    MOVE          G0 0x1234     // frame 196
+    INTTRG        0x0041        // frame 197
+
+
+
+:int1
+    MOVE          G0 0xBADAD    // frame 191
+    INTGRA        G7            // frame 192
+    GETABS        G0 diff       // frame 193
+    INTSRA        G0            // frame 194
+    INTFIN                      // frame 195
+
+:int2
+    MOVE          G0 0x5678     // frame 198
+    INTSRA        G7            // frame 199
+    INTFIN                      // frame 200
+
+:cont
+    NOOP                        // frame 203

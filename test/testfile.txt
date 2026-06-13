@@ -435,13 +435,26 @@ G1: 0x1234
 // Check SWAP-W1S0-ABS form 4
 frame: 180
 G0: 0x1
-MEM: 0x00010000 0x02
+MEM: 0x00008000 0x02
 
 frame: 181
 G0: 0x2
-MEM: 0x00010000 0x01
+MEM: 0x00008000 0x01
 
 // Check SWAP-W1S0-ABS form 2
 frame: 183
 G0: 0x1
-MEM: 0x00010000 0x02
+MEM: 0x00008000 0x02
+
+// Check INTGRA and INTSRA
+frame: 191
+G0: 0xBADAD
+
+frame: 196
+G0: 0x1234
+
+frame: 198
+G0: 0x5678
+
+frame: 201
+G0: 0x7777

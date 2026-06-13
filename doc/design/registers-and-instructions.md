@@ -201,6 +201,8 @@ Form 7:
 - 0011 - trigger interrupt (form 7)
 - 0100 - finish interrupt (form 6)
 - 0101 - get interrupt parameter (form 4)
+- 0110 - get return address (form 4)
+- 0111 - set return address (form 4)
 
 ### Argument Augment
 

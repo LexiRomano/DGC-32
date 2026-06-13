@@ -689,6 +689,15 @@ static bool doInterruptUtils(uint8_t intVari, uint8_t regsel, uint32_t arg)
 
         case OP_CODE_INTR_GPR:
             transferVarToReg(regsel, (currentInterrupt & INTERRUPT_ARG_MASK) >> INTERRUPT_ARG_OFFSET);
+            break;
+
+        case OP_CODE_INTR_GRA:
+            transferVarToReg(regsel, interruptReturnAddress);
+            break;
+
+        case OP_CODE_INTR_SRA:
+            interruptReturnAddress = getValFromRegsel(regsel);
+            break;
     }
 
     return true;

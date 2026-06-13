@@ -41,6 +41,8 @@
 #define OP_CODE_INTR_TRIG_F7_VARI 0x30
 #define OP_CODE_INTR_FIN_VARI     0x40
 #define OP_CODE_INTR_GPR          0x50
+#define OP_CODE_INTR_GRA          0x60
+#define OP_CODE_INTR_SRA          0x70
 
 #define OP_CODE_LOAD_F2 0x02
 #define OP_CODE_LOAD_F4 0x03
