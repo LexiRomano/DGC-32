@@ -208,3 +208,10 @@
     LOAD-OA       OB 2          // frame 175
     MOVE          OB 0x8000     // frame 176
     LOAD-OB       G1 2          // frame 177
+
+    MOVE          G0 2          // frame 178
+    STOR-W1S0-ABS G0 0x10000    // frame 179
+    MOVE          G0 1          // frame 180
+    SWAP-W1S0-ABS G0 0x10000    // frame 181
+    MOVE          G1 0x10000    // frame 182
+    SWAP-W1S0-ABS G0 G1         // frame 183

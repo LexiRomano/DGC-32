@@ -48,6 +48,9 @@
 #define OP_CODE_STOR_F2 0x04
 #define OP_CODE_STOR_F4 0x05
 
+#define OP_CODE_SWAP_F2 0x14
+#define OP_CODE_SWAP_F4 0x15
+
 #define OP_CODE_MOVE_F2 0x06
 #define OP_CODE_MOVE_F5 0x07
 

@@ -154,6 +154,8 @@ Form 7:
 | .    | .                                          | 0x03           | 4     | Y            | Y                    |
 | STOR | store from a register to memory            | 0x04           | 2     |              | Y                    |
 | .    | .                                          | 0x05           | 4     | Y            | Y                    |
+| SWAP | swap beteen a register and memory          | 0x14           | 2     |              | Y                    |
+| .    | .                                          | 0x15           | 4     | Y            | Y                    |
 | MOVE | move from one register to another          | 0x06           | 2     |              |                      |
 | .    | move a value directly int a register       | 0x07           | 5     |              |                      |
 | ADD  | add two registers together                 | 0x18           | 1     |              |                      |

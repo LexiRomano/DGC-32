@@ -431,3 +431,17 @@ MEM: 0x00008005 0x00
 // Check LOAD-OB into G1
 frame: 177
 G1: 0x1234
+
+// Check SWAP-W1S0-ABS form 4
+frame: 180
+G0: 0x1
+MEM: 0x00010000 0x02
+
+frame: 181
+G0: 0x2
+MEM: 0x00010000 0x01
+
+// Check SWAP-W1S0-ABS form 2
+frame: 183
+G0: 0x1
+MEM: 0x00010000 0x02

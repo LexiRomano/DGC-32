@@ -1203,6 +1203,8 @@ static uint32_t applyOffset(uint8_t insAug, uint32_t baseAddress)
 
 static void run()
 {
+    uint32_t tmp1 = 0;
+    uint32_t tmp2 = 0;
     #ifdef SELF_TEST
     st_defineStartTime();
     #endif //SELFTEST
@@ -1270,10 +1272,34 @@ static void run()
             case OP_CODE_STOR_F2:
                 memcpy(&instructionAugment, &(memory[programCounter + 4]), sizeof(instructionAugment));
 
-                transferRegToMem(applyOffset(instructionAugment,
-                                             getValFromRegsel(REGSEL_2_GET(instructionRegister))),
-                                 REGSEL_1_GET(instructionRegister),
-                                 instructionAugment);
+                if (OP_CODE_SWAP_F2 == OP_CODE_GET_FULL(instructionRegister))
+                {
+                    tmp1 = getValFromRegsel(REGSEL_1_GET(instructionRegister));
+
+                    transferMemToReg(REGSEL_1_GET(instructionRegister),
+                                     applyOffset(instructionAugment,
+                                                 getValFromRegsel(REGSEL_2_GET(instructionRegister))),
+                                     instructionAugment);
+
+                    tmp2 = getValFromRegsel(REGSEL_1_GET(instructionRegister));
+
+                    transferVarToReg(REGSEL_1_GET(instructionRegister), tmp1);
+
+                    transferRegToMem(applyOffset(instructionAugment,
+                                                 getValFromRegsel(REGSEL_2_GET(instructionRegister))),
+                                     REGSEL_1_GET(instructionRegister),
+                                     instructionAugment);
+
+                    transferVarToReg(REGSEL_1_GET(instructionRegister), tmp2);
+                }
+                else
+                {
+                    transferRegToMem(applyOffset(instructionAugment,
+                                                 getValFromRegsel(REGSEL_2_GET(instructionRegister))),
+                                     REGSEL_1_GET(instructionRegister),
+                                     instructionAugment);
+                }
+
                 programCounter+=5;
                 break;
 
@@ -1281,9 +1307,31 @@ static void run()
                 memcpy(&instructionAugment, &(memory[programCounter + 4]), sizeof(instructionAugment));
                 memcpy(&argumentAugment,    &(memory[programCounter + 5]), sizeof(argumentAugment));
 
-                transferRegToMem(applyOffset(instructionAugment, argumentAugment),
-                                 REGSEL_1_GET(instructionRegister),
-                                 instructionAugment);
+                if (OP_CODE_SWAP_F4 == OP_CODE_GET_FULL(instructionRegister))
+                {
+                    tmp1 = getValFromRegsel(REGSEL_1_GET(instructionRegister));
+
+                    transferMemToReg(REGSEL_1_GET(instructionRegister),
+                                     applyOffset(instructionAugment, argumentAugment),
+                                     instructionAugment);
+
+                    tmp2 = getValFromRegsel(REGSEL_1_GET(instructionRegister));
+
+                    transferVarToReg(REGSEL_1_GET(instructionRegister), tmp1);
+
+                    transferRegToMem(applyOffset(instructionAugment, argumentAugment),
+                                     REGSEL_1_GET(instructionRegister),
+                                     instructionAugment);
+
+                    transferVarToReg(REGSEL_1_GET(instructionRegister), tmp2);
+                }
+                else
+                {
+                    transferRegToMem(applyOffset(instructionAugment, argumentAugment),
+                                     REGSEL_1_GET(instructionRegister),
+                                     instructionAugment);
+                }
+
                 programCounter+=9;
                 break;
 
