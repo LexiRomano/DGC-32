@@ -26,6 +26,7 @@ When an interrupt is triggered, the address of the previously executing program 
 | 0x07      | storage event         |
 | 0x08      | graphical event       |
 | 0x09      | memory violation*     |
+| 0x0A      | invalid instruction*  |
 | 0x0A:0x3F | reserved              |
 | 0x40:0xFF | system calls          |
 
@@ -73,3 +74,7 @@ The 6 least signifigant bits corresponds to the device table entry from where th
 ### Memory Violation (0x09)
 
 This interrupt is triggered when protected memory is trying to be accessed.
+
+### Memory Violation (0x0A)
+
+This interrupt is triggered when the processor attempts to execute an instruction using an undefined op code

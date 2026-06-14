@@ -105,8 +105,9 @@ uint8_t *regMap1[] =
 
 uint8_t criticalInterruptIDs[] =
 {
-    0x05, // Critical stack event
-    0x09  // Memory violation
+    INTERRUPT_CODE_EMPTY_POP, // Critical stack event
+    INTERRUPT_CODE_MEMORY_VIOLATION,
+    INTERRUPT_CODE_INVALID_INSTRUCTION
 };
 
 #ifdef USER_TEST
@@ -720,6 +721,10 @@ static bool doInterruptUtils(uint8_t intVari, uint8_t regsel, uint32_t arg)
         case OP_CODE_INTR_SRA:
             interruptReturnAddress = getValFromRegsel(regsel);
             break;
+        
+        default:
+            enqueueCriticalInterrupt(INTERRUPT_CODE_INVALID_INSTRUCTION);
+            return false;
     }
 
     return true;
@@ -778,7 +783,7 @@ static void detectInterrupt()
     statusRegister = statusRegister | STAT_REG_INT_IN_PROG_MASK;
 }
 
-static void doMath(uint8_t opcodeVari, uint8_t destRegsel, uint32_t a, uint32_t b)
+static bool doMath(uint8_t opcodeVari, uint8_t destRegsel, uint32_t a, uint32_t b)
 {
     uint32_t result = 0;
     uint64_t buf64  = 0;
@@ -848,6 +853,11 @@ static void doMath(uint8_t opcodeVari, uint8_t destRegsel, uint32_t a, uint32_t 
                 buf64 = buf64 >> 1;
             }
             result = buf64;
+            break;
+
+        default:
+            enqueueCriticalInterrupt(INTERRUPT_CODE_INVALID_INSTRUCTION);
+            return false;
     }
 
     transferVarToReg(destRegsel, result);
@@ -855,6 +865,7 @@ static void doMath(uint8_t opcodeVari, uint8_t destRegsel, uint32_t a, uint32_t 
                      (result >  0x7FFFFFFF ? FLAG_N : 0) +
                      (carry                ? FLAG_C : 0) +
                      (overflow             ? FLAG_V : 0));
+    return true;
 }
 
 static void doCompare(uint32_t a, uint32_t b)
@@ -1074,6 +1085,10 @@ static bool doStackUtils(uint8_t stackVari, uint8_t regsel)
             // Return
             programCounter = pop32();
             return false;
+
+        default:
+            enqueueCriticalInterrupt(INTERRUPT_CODE_INVALID_INSTRUCTION);
+            return false;
     }
 
 
@@ -1176,6 +1191,11 @@ static bool checkBranch(uint8_t branchVari, uint8_t insAug, uint32_t address, bo
         case OP_CODE_BRNC_NV_VARI:
             // V==0
             branch = (flagsRegister & FLAG_V) == 0;
+            break;
+
+        default:
+            enqueueCriticalInterrupt(INTERRUPT_CODE_INVALID_INSTRUCTION);
+            return true; // Pretend we branched so we don't inc PC
     }
 
     if (branch)
@@ -1264,6 +1284,17 @@ static void run()
                     tmp1 = getValFromRegsel(REGSEL_1_GET(instructionRegister));
                     printf("DGC-32 DEBUG: %s = 0x%08x\n", regselNames[REGSEL_1_GET(instructionRegister)], tmp1);
                 }
+                else if (0 != OP_CODE_GET_VARI(instructionRegister))
+                {
+                    enqueueCriticalInterrupt(INTERRUPT_CODE_INVALID_INSTRUCTION);
+                    break;
+                }
+                #else 
+                if (0 != OP_CODE_GET_VARI(instructionRegister))
+                {
+                    enqueueCriticalInterrupt(INTERRUPT_CODE_INVALID_INSTRUCTION);
+                    break;
+                }
                 #endif //USER_TEST
                 programCounter+=4;
                 break;
@@ -1278,6 +1309,11 @@ static void run()
                 break;
 
             case OP_CODE_LOAD_F2:
+                if (0 != OP_CODE_GET_VARI(instructionRegister))
+                {
+                    enqueueCriticalInterrupt(INTERRUPT_CODE_INVALID_INSTRUCTION);
+                    break;
+                }
                 memcpy(&instructionAugment, &(memory[programCounter + 4]), sizeof(instructionAugment));
 
                 if (0 != (instructionAugment & INS_AUG_ABS_MASK))
@@ -1298,6 +1334,11 @@ static void run()
                 break;
 
             case OP_CODE_LOAD_F4:
+                if (0 != OP_CODE_GET_VARI(instructionRegister))
+                {
+                    enqueueCriticalInterrupt(INTERRUPT_CODE_INVALID_INSTRUCTION);
+                    break;
+                }
                 memcpy(&instructionAugment, &(memory[programCounter + 4]), sizeof(instructionAugment));
                 memcpy(&argumentAugment,    &(memory[programCounter + 5]), sizeof(argumentAugment));
 
@@ -1319,7 +1360,7 @@ static void run()
             case OP_CODE_STOR_F2:
                 memcpy(&instructionAugment, &(memory[programCounter + 4]), sizeof(instructionAugment));
 
-                if (OP_CODE_SWAP_F2 == OP_CODE_GET_FULL(instructionRegister))
+                if (OP_CODE_CHECK_FULL(instructionRegister, OP_CODE_SWAP_F2))
                 {
                     tmp1 = getValFromRegsel(REGSEL_1_GET(instructionRegister));
 
@@ -1339,12 +1380,17 @@ static void run()
 
                     transferVarToReg(REGSEL_1_GET(instructionRegister), tmp2);
                 }
-                else
+                else if (0 == OP_CODE_GET_VARI(instructionAugment))
                 {
                     transferRegToMem(applyOffset(instructionAugment,
                                                  getValFromRegsel(REGSEL_2_GET(instructionRegister))),
                                      REGSEL_1_GET(instructionRegister),
                                      instructionAugment);
+                }
+                else
+                {
+                    enqueueCriticalInterrupt(INTERRUPT_CODE_INVALID_INSTRUCTION);
+                    break;
                 }
 
                 programCounter+=5;
@@ -1354,7 +1400,7 @@ static void run()
                 memcpy(&instructionAugment, &(memory[programCounter + 4]), sizeof(instructionAugment));
                 memcpy(&argumentAugment,    &(memory[programCounter + 5]), sizeof(argumentAugment));
 
-                if (OP_CODE_SWAP_F4 == OP_CODE_GET_FULL(instructionRegister))
+                if (OP_CODE_CHECK_FULL(instructionRegister, OP_CODE_SWAP_F4))
                 {
                     tmp1 = getValFromRegsel(REGSEL_1_GET(instructionRegister));
 
@@ -1372,49 +1418,78 @@ static void run()
 
                     transferVarToReg(REGSEL_1_GET(instructionRegister), tmp2);
                 }
-                else
+                else if (0 == OP_CODE_GET_VARI(instructionAugment))
                 {
                     transferRegToMem(applyOffset(instructionAugment, argumentAugment),
                                      REGSEL_1_GET(instructionRegister),
                                      instructionAugment);
+                }
+                else
+                {
+                    enqueueCriticalInterrupt(INTERRUPT_CODE_INVALID_INSTRUCTION);
+                    break;
                 }
 
                 programCounter+=9;
                 break;
 
             case OP_CODE_MOVE_F2:
+                if (0 != OP_CODE_GET_VARI(instructionRegister))
+                {
+                    enqueueCriticalInterrupt(INTERRUPT_CODE_INVALID_INSTRUCTION);
+                    break;
+                }
                 transferRegToReg(REGSEL_1_GET(instructionRegister), REGSEL_2_GET(instructionRegister));
                 programCounter+=4;
                 break;
 
             case OP_CODE_MOVE_F5:
+                if (0 != OP_CODE_GET_VARI(instructionRegister))
+                {
+                    enqueueCriticalInterrupt(INTERRUPT_CODE_INVALID_INSTRUCTION);
+                    break;
+                }
                 transferVarToReg(REGSEL_1_GET(instructionRegister), ARG_F5_GET(instructionRegister));
                 programCounter+=4;
                 break;
 
             case OP_CODE_MATH_BASE_F1:
-                doMath(OP_CODE_GET_VARI(instructionRegister),
-                       REGSEL_1_GET(instructionRegister),
-                       getValFromRegsel(REGSEL_2_GET(instructionRegister)),
-                       getValFromRegsel(REGSEL_3_GET(instructionRegister)));
-                programCounter+=4;
+                if (doMath(OP_CODE_GET_VARI(instructionRegister),
+                           REGSEL_1_GET(instructionRegister),
+                           getValFromRegsel(REGSEL_2_GET(instructionRegister)),
+                           getValFromRegsel(REGSEL_3_GET(instructionRegister))))
+                {
+                    programCounter+=4;
+                }
                 break;
 
             case OP_CODE_MATH_BASE_F3:
-                doMath(OP_CODE_GET_VARI(instructionRegister),
-                       REGSEL_1_GET(instructionRegister),
-                       getValFromRegsel(REGSEL_2_GET(instructionRegister)),
-                       ARG_F3_GET(instructionRegister));
-                programCounter+=4;
+                if (doMath(OP_CODE_GET_VARI(instructionRegister),
+                           REGSEL_1_GET(instructionRegister),
+                           getValFromRegsel(REGSEL_2_GET(instructionRegister)),
+                           ARG_F3_GET(instructionRegister)))
+                {
+                    programCounter+=4;
+                }
                 break;
 
             case OP_CODE_COMP_F2:
+                if (0 != OP_CODE_GET_VARI(instructionRegister))
+                {
+                    enqueueCriticalInterrupt(INTERRUPT_CODE_INVALID_INSTRUCTION);
+                    break;
+                }
                 doCompare(getValFromRegsel(REGSEL_1_GET(instructionRegister)),
                           getValFromRegsel(REGSEL_2_GET(instructionRegister)));
                 programCounter+=4;
                 break;
 
             case OP_CODE_COMP_F4:
+                if (0 != OP_CODE_GET_VARI(instructionRegister))
+                {
+                    enqueueCriticalInterrupt(INTERRUPT_CODE_INVALID_INSTRUCTION);
+                    break;
+                }
                 memcpy(&argumentAugment, &(memory[programCounter + 4]), sizeof(argumentAugment));
                 doCompare(getValFromRegsel(REGSEL_1_GET(instructionRegister)),
                           argumentAugment);
@@ -1448,15 +1523,22 @@ static void run()
                 break;
 
             case OP_CODE_STCK_BASE:
-                if (true == doStackUtils(OP_CODE_GET_VARI(instructionRegister),
-                                         REGSEL_1_GET(instructionRegister)))
+                if (doStackUtils(OP_CODE_GET_VARI(instructionRegister),
+                                 REGSEL_1_GET(instructionRegister)))
                 {
                     programCounter+=4;
                 }
                 break;
 
             case OP_CODE_TERM_BASE:
-                return;
+                if (OP_CODE_CHECK_FULL(instructionRegister, OP_CODE_TERM_FULL))
+                {
+                    return;
+                }
+                // fall through
+            default:
+                enqueueCriticalInterrupt(INTERRUPT_CODE_INVALID_INSTRUCTION);
+                break;
         }
 
         #ifdef SELF_TEST
