@@ -1244,6 +1244,19 @@ static uint32_t applyOffset(uint8_t insAug, uint32_t baseAddress)
 {
     if (0 != (insAug & INS_AUG_REL_MASK))
     {
+        if (0 != (insAug & INS_AUG_ABS_MASK))
+        {
+            // Relative to PC, based on an offset register
+            switch (insAug & INS_AUG_OFFSET_REGSEL_MASK)
+            {
+                case INS_AUG_OFFSET_REGSEL_OA:
+                    return baseAddress - offsetRegisters[0] + programCounter;
+                case INS_AUG_OFFSET_REGSEL_OB:
+                    return baseAddress - offsetRegisters[1] + programCounter;
+                case INS_AUG_OFFSET_REGSEL_OC:
+                    return baseAddress - offsetRegisters[2] + programCounter;
+            }
+        }
         // Relative to PC
         return baseAddress + programCounter;
     }

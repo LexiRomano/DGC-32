@@ -494,3 +494,7 @@ FL: 0b0100
 frame: 210
 G0: 0x1
 FL: 0b0000
+
+// Check GETREL-OA
+frame: 214
+G0: 0x789

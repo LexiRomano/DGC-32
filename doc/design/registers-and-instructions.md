@@ -223,7 +223,7 @@ To support several different addressing modes, word sizes, and stack options, th
   Relative address
 ```
 
-***Offset reg select***: Which offset registere to add to the location argument. Ignored if relative address is set. For all augmented commands.
+***Offset reg select***: Which offset registere to add to the location argument. Inverted if both get absolute address and relative address are set, ignored if only relative address is set. For all augmented commands.
 - 00 - None
 - 01 - OA
 - 10 - OB

@@ -255,3 +255,12 @@
     BSLC          G0 G0 1       // frame 208
     BSRC          G0 G0 2       // frame 209
     BSLC          G0 G0 2       // frame 210
+
+    GETABS        OA someLbl    // frame 211
+    GETREL-OA     G0 myFunc     // frame 212
+    BRAL-OA       G0            // frame 213
+
+:someLbl
+    NOOP                        // none
+:myFunc
+    MOVE          G0 0x789      // frame 214
