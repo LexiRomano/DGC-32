@@ -174,9 +174,9 @@ Form 7:
 | .    | .                                          | 0x79           | 3     |              |                      |
 | BSRT | bitshift a register right and truncate     | 0x88           | 1     |              |                      |
 | .    | .                                          | 0x89           | 3     |              |                      |
-| BSLC | bitshift a retister left and carry around  | 0x98           | 1     |              |                      |
+| BSLC | bitshift reg left and carry thru c flag    | 0x98           | 1     |              |                      |
 | .    | .                                          | 0x99           | 3     |              |                      |
-| BSRC | bitshift a register right and carry around | 0xA8           | 1     |              |                      |
+| BSRC | bitshift reg right and carry thru c flag   | 0xA8           | 1     |              |                      |
 | .    | .                                          | 0xA9           | 3     |              |                      |
 | COMP | compare two registers to each other        | 0x0A           | 2     |              |                      |
 | .    | compare a register to a value              | 0x0B           | 4     | Y            |                      |

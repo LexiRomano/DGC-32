@@ -816,29 +816,38 @@ static void doMath(uint8_t opcodeVari, uint8_t destRegsel, uint32_t a, uint32_t 
             buf64 = (uint64_t) a;
             buf64 = buf64 << (b % 32);
             result = (uint32_t) buf64 & 0xFFFFFFFF;
-            carry = (buf64 & 0xFFFFFFFF00000000) != 0;
+            carry = (buf64 & 0x0000000100000000) != 0;
             break;
 
         case OP_CODE_BSRT_VARI:
             buf64 = ((uint64_t) a) << 32;
             buf64 = buf64 >> (b % 32);
             result = (uint32_t) ((buf64 & 0xFFFFFFFF00000000) >> 32);
-            carry = (buf64 & 0xFFFFFFFF) != 0;
+            carry = (buf64 & 0x80000000) != 0;
             break;
 
         case OP_CODE_BSLC_VARI:
             buf64 = (uint64_t) a;
-            buf64 = buf64 << (b % 32);
-            result = (uint32_t) (buf64 & 0xFFFFFFFF) +
-                                ((buf64 & 0xFFFFFFFF00000000) >> 32);
-            carry = (buf64 & 0xFFFFFFFF00000000) != 0;
+            carry = (flagsRegister & FLAG_C) != 0;
+            for (uint8_t i = 0; i < (b % 32); i++)
+            {
+                buf64 = buf64 << 1;
+                buf64 += carry ? 1 : 0;
+                carry = (buf64 & 0x100000000) != 0;
+                buf64 = (buf64 & 0xFFFFFFFF);
+            }
+            result = buf64;
             break;
         case OP_CODE_BSRC_VARI:
-            buf64 = ((uint64_t) a) << 32;
-            buf64 = buf64 >> (b % 32);
-            result = (uint32_t) (buf64 & 0xFFFFFFFF) +
-                                ((buf64 & 0xFFFFFFFF00000000) >> 32);
-            carry = (buf64 & 0xFFFFFFFF) != 0;
+            buf64 = (uint64_t) a;
+            carry = (flagsRegister & FLAG_C) != 0;
+            for (uint8_t i = 0; i < (b % 32); i++)
+            {
+                buf64 += carry ? 0x100000000 : 0;
+                carry = (buf64 & 0x1) != 0;
+                buf64 = buf64 >> 1;
+            }
+            result = buf64;
     }
 
     transferVarToReg(destRegsel, result);

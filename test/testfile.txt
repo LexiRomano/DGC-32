@@ -121,12 +121,12 @@ FL: 0b0110
 
 // Check form 3 BSRC, no carry
 frame: 31
-G0: 0x7FFFFFFF
-FL: 0b0000
+G0: 0xFFFFFFFF
+FL: 0b0100
 
 // Check form 3 BSRT, with carry
 frame: 32
-G0: 0x3FFFFFFF
+G0: 0x7FFFFFFF
 FL: 0b0010
 
 // Check form 4 COMP, 2 - 1 = 1
@@ -458,3 +458,39 @@ G0: 0x5678
 
 frame: 201
 G0: 0x7777
+
+// More BS*C tests
+// setup
+frame: 204
+G0: 0x1
+FL: 0b0000
+
+// BSRC by 1
+frame: 205
+G0: 0x0
+FL: 0b1010
+
+// BSRC by 1
+frame: 206
+G0: 0x80000000
+FL: 0b0100
+
+// BSLC by 1
+frame: 207
+G0: 0x0
+FL: 0b1010
+
+// BSLC by 1
+frame: 208
+G0: 0x1
+FL: 0b0000
+
+// BSRC by 2
+frame: 209
+G0: 0x80000000
+FL: 0b0100
+
+// BSLC by 2
+frame: 210
+G0: 0x1
+FL: 0b0000

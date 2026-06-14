@@ -247,4 +247,11 @@
     INTFIN                      // frame 200
 
 :cont
-    NOOP                        // frame 203
+    MOVE          G0 0x1        // frame 203
+    MOVE          FL 0          // frame 204
+    BSRC          G0 G0 1       // frame 205
+    BSRC          G0 G0 1       // frame 206
+    BSLC          G0 G0 1       // frame 207
+    BSLC          G0 G0 1       // frame 208
+    BSRC          G0 G0 2       // frame 209
+    BSLC          G0 G0 2       // frame 210
