@@ -500,25 +500,43 @@ static void transferRegToMem(uint32_t toAddress, uint8_t fromRegsel, uint8_t ins
     {
         case INS_AUG_WORD_SIZE_4:
         case INS_AUG_WORD_SIZE_INVALID:
+        {
             if (false == MEMBOUND_CAN_WRITE(toAddress, 4))
             {
                 enqueueCriticalInterrupt(INTERRUPT_CODE_MEMORY_VIOLATION);
                 return;
             }
+            if (false == mb_canWriteToDeviceData(toAddress, 4))
+            {
+                return;
+            }
             break;
+        }
         case INS_AUG_WORD_SIZE_2:
+        {
             if (false == MEMBOUND_CAN_WRITE(toAddress, 2))
             {
                 enqueueCriticalInterrupt(INTERRUPT_CODE_MEMORY_VIOLATION);
                 return;
             }
+            if (false == mb_canWriteToDeviceData(toAddress, 2))
+            {
+                return;
+            }
             break;
+        }
         case INS_AUG_WORD_SIZE_1:
+        {
             if (false == MEMBOUND_CAN_WRITE(toAddress, 1))
             {
                 enqueueCriticalInterrupt(INTERRUPT_CODE_MEMORY_VIOLATION);
                 return;
             }
+            if (false == mb_canWriteToDeviceData(toAddress, 1))
+            {
+                return;
+            }
+        }
     }
 
     switch (regSize[fromRegsel])

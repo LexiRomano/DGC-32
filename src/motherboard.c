@@ -203,7 +203,7 @@ bool dmi_enqueueInterrupt(uint8_t deviceId, interruptTypes_e interruptType, uint
 * Requests a new device to be added to the device registry. Returns the new
 * device ID, or NEW_DEVICE_REQUEST_FAILED if it failed.
 *******************************************************************************/
-uint8_t dmi_requestNewDevice(uint8_t managerId, uint16_t size)
+uint8_t dmi_requestNewDevice(uint8_t managerId, uint16_t size, bool *canWriteMap)
 {
     mb_device_t *newDevice       = NULL;
     uint8_t      newDeviceId     = NEW_DEVICE_REQUEST_FAILED;
@@ -212,7 +212,8 @@ uint8_t dmi_requestNewDevice(uint8_t managerId, uint16_t size)
     mtx_lock(&deviceRegistryMutex);
 
     if (size      >  MEMBOUND_DDAT_END - MEMBOUND_DDAT_START + 1 ||
-        managerId >= NUM_DEVICE_MANAGERS)
+        managerId >= NUM_DEVICE_MANAGERS ||
+        NULL      == canWriteMap)
     {
         mtx_unlock(&deviceRegistryMutex);
         return NEW_DEVICE_REQUEST_FAILED;
@@ -279,10 +280,13 @@ uint8_t dmi_requestNewDevice(uint8_t managerId, uint16_t size)
     }
 
     // Initialize the rest of the data
-    newDevice->size       = size;
-    newDevice->deviceType = managerDeviceType[managerId];
-    newDevice->deviceId   = newDeviceId;
-    newDevice->managerId  = managerId;
+    newDevice->size        = size;
+    newDevice->deviceType  = managerDeviceType[managerId];
+    newDevice->deviceId    = newDeviceId;
+    newDevice->managerId   = managerId;
+    newDevice->canWriteMap = calloc(size, sizeof(bool));
+
+    memcpy(newDevice->canWriteMap, canWriteMap, size);
 
     // Add to mappings
     deviceMappingData[newDeviceId] = newDevice;
@@ -376,6 +380,10 @@ void dmi_removeDevice(uint8_t deviceId)
         writeMem(MEMBOUND_DREG_START + (deviceId * 8) + 1, 1, (uint8_t[]) {DEVICE_TALBE_EMPTY_MARKER});
     }
 
+    if (NULL != deviceToDelete->canWriteMap)
+    {
+        free(deviceToDelete->canWriteMap);
+    }
     free(deviceToDelete);
 
     enqueueInterrupt(INTERRUPT_CODE_MOTHERBOARD_EVENT + (deviceId << 8));
@@ -583,20 +591,111 @@ void mb_readFromDeviceData(uint32_t address, uint8_t size)
 }
 
 /*******************************************************************************
+* Interface for the processor to check with the motherboard if it is ok to
+* write to a region in device data.
+*******************************************************************************/
+bool mb_canWriteToDeviceData (uint32_t address, uint8_t numBytes)
+{
+    mb_device_t *foundDevice      = NULL;
+    uint8_t      addressForDevice = 0;
+    bool         canWrite         = false;
+
+    if (address  + numBytes - 1 < MEMBOUND_DDAT_START ||
+        address > MEMBOUND_DDAT_END)
+    {
+        // Not writing to device data
+        return true;
+    }
+
+    if (address < MEMBOUND_DDAT_START ||
+        address + numBytes - 1 > MEMBOUND_DDAT_END)
+    {
+        // Write splits region boundary
+        enqueueInterrupt(INTERRUPT_CODE_MOTHERBOARD_EVENT + (0b11000000 << 8));
+        return false;
+    }
+
+    mtx_lock(&deviceRegistryMutex);
+    for (mb_device_t *p = firstDeviceInMem; NULL != p; p = p->nextInMem)
+    {
+        if (address >= p->startLocation &&
+            address + numBytes - 1 <= p->startLocation + p->size - 1)
+        {
+            foundDevice = p;
+            break;
+        }
+
+        if (address < p->startLocation)
+        {
+            break;
+        }
+    }
+
+    if (NULL == foundDevice ||
+        NULL == foundDevice->canWriteMap)
+    {
+        // Invalid memory region
+        enqueueInterrupt(INTERRUPT_CODE_MOTHERBOARD_EVENT + (0b11000000 << 8));
+        mtx_unlock(&deviceRegistryMutex);
+        return false;
+    }
+
+    addressForDevice = address - foundDevice->startLocation;
+
+    switch (numBytes)
+    {
+        case 1:
+        {
+            canWrite = foundDevice->canWriteMap[addressForDevice];
+            break;
+        }
+        case 2:
+        {
+            canWrite = foundDevice->canWriteMap[addressForDevice] &&
+                       foundDevice->canWriteMap[addressForDevice + 1];
+            break;
+        }
+        case 4:
+        {
+            canWrite = foundDevice->canWriteMap[addressForDevice]     &&
+                       foundDevice->canWriteMap[addressForDevice + 1] &&
+                       foundDevice->canWriteMap[addressForDevice + 2] &&
+                       foundDevice->canWriteMap[addressForDevice + 3];
+            break;
+        }
+        default:
+        {
+            canWrite = false;
+        }
+    }
+
+    mtx_unlock(&deviceRegistryMutex);
+
+    if (false == canWrite)
+    {
+        enqueueInterrupt(INTERRUPT_CODE_MOTHERBOARD_EVENT + (0b11000000 << 8));
+    }
+
+    return canWrite;
+}
+
+
+/*******************************************************************************
 * Interface for the processor to handle writes to device data.
 *******************************************************************************/
-void mb_writeToDeviceData(uint32_t address, uint8_t size, void *data)
+void mb_writeToDeviceData(uint32_t address, uint8_t numBytes, void *data)
 {
     mb_device_t *foundDevice = NULL;
 
-    if (address < MEMBOUND_DDAT_START ||
+    if (address  + numBytes - 1 < MEMBOUND_DDAT_START ||
         address > MEMBOUND_DDAT_END)
     {
         // Not writing to device data
         return;
     }
 
-    if (address + size - 1 > MEMBOUND_DDAT_END)
+    if (address < MEMBOUND_DDAT_START ||
+        address + numBytes - 1 > MEMBOUND_DDAT_END)
     {
         // Write splits region boundary
         enqueueInterrupt(INTERRUPT_CODE_MOTHERBOARD_EVENT + (0b11000000 << 8));
@@ -606,7 +705,7 @@ void mb_writeToDeviceData(uint32_t address, uint8_t size, void *data)
     for (mb_device_t *p = firstDeviceInMem; NULL != p; p = p->nextInMem)
     {
         if (address >= p->startLocation &&
-            address + size - 1 <= p->startLocation + p->size - 1)
+            address + numBytes - 1 <= p->startLocation + p->size - 1)
         {
             foundDevice = p;
             break;
@@ -630,7 +729,7 @@ void mb_writeToDeviceData(uint32_t address, uint8_t size, void *data)
     {
         managerHandleWriteFunctions[foundDevice->managerId](foundDevice->deviceId, 
                                                             address - foundDevice->startLocation,
-                                                            size,
+                                                            numBytes,
                                                             data);
     }
 

@@ -71,7 +71,7 @@ typedef void (*handleWriteFP_t)(uint8_t, uint16_t, uint8_t, void*);
 typedef void (*handleTermInFP_t)(uint8_t);
 
 // Motherboard functions
-uint8_t dmi_requestNewDevice(uint8_t managerId, uint16_t size);
+uint8_t dmi_requestNewDevice(uint8_t managerId, uint16_t size, bool *canWriteMap);
 void dmi_removeDevice(uint8_t deviceId);
 bool dmi_readDeviceData(uint8_t deviceId, uint16_t deviceDataAddress, uint8_t numBytes, void *buf);
 bool dmi_writeDeviceData(uint8_t deviceId, uint16_t deviceDataAddress, uint8_t numBytes, void *buf);

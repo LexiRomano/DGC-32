@@ -11,8 +11,8 @@ A d-grade serial interface
 |                   0 | Peripheral type identifier = 0x53   |     RO |
 |                   1 | Serial protocol identifier = 0x01   |     RO |
 |                   2 | Inbound data                        |     RO |
-|                   3 | Outbound data                       |     WO |
-|                   4 | Flush                               |     WO |
+|                   3 | Outbound data                       |     RW |
+|                   4 | Flush                               |     RW |
 |                   5 | Config                              |     RW |
 |                   6 | Status                              |     RO |
 

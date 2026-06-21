@@ -16,7 +16,9 @@ int ddm_initDeviceManager(void *arg)
 
     // Request initial devices
 
-    if (NEW_DEVICE_REQUEST_FAILED == dmi_requestNewDevice(myThreadData.managerId, 2))
+    if (NEW_DEVICE_REQUEST_FAILED == dmi_requestNewDevice(myThreadData.managerId,
+                                                          2,
+                                                          (bool[]){true, true}))
     {
         myThreadData.semaphore->wakeReason = dts_kill;
         cnd_signal(myThreadData.wakeCondition);

@@ -23,12 +23,14 @@ typedef struct mb_device_t
     deviceTypes_e       deviceType;
     uint32_t            startLocation;
     uint16_t            size;
+    bool               *canWriteMap;
     struct mb_device_t *nextInMem;
 } mb_device_t;
 
 bool mb_init(externalFileInfo_t *externalFileInfo, glfwInfo_t *glfw, memTransFP_t read, memTransFP_t write, interruptFP_t interrupt);
 void mb_readFromDeviceData(uint32_t address, uint8_t numBytes);
-void mb_writeToDeviceData (uint32_t address, uint8_t numBytes, void *data);
+bool mb_canWriteToDeviceData (uint32_t address, uint8_t numBytes);
+void mb_writeToDeviceData    (uint32_t address, uint8_t numBytes, void *data);
 bool mb_powerState();
 void mb_teardown();
 

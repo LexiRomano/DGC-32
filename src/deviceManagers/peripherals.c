@@ -70,6 +70,12 @@ static int glfwKeyTokensForDboard[][2] =
    {GLFW_KEY_RIGHT_ALT,     DBOARD_SCANCODE_RALT}
 };
 
+static bool dboardCanWriteMap[] = 
+{
+    false,
+    false
+};
+
 // Derial
 static uint8_t derialDeviceId                                  = NEW_DEVICE_REQUEST_FAILED;
 static uint8_t derialOutboundBuffer[DERIAL_OUTBOUND_BUF_SIZE]  = {0};
@@ -85,6 +91,16 @@ static bool derialStatusBufFull     = false;
 static bool derialStatusInboudReady = false;
 static bool derialStatusRcvMissed   = false;
 
+static bool derialCanWriteMap[] =
+{
+    false,
+    false,
+    false,
+    true,
+    true,
+    true,
+    false
+};
 
 static void pr_dboardHandleKeyPress(GLFWwindow* window, int key, int scancode, int action, int mods)
 {
@@ -319,7 +335,9 @@ int pr_initDeviceManager(void *arg)
     // Request initial devices
 
     // Dboard
-    dboardDeviceId = dmi_requestNewDevice(myThreadData.managerId, DBOARD_DDAT_SIZE);
+    dboardDeviceId = dmi_requestNewDevice(myThreadData.managerId,
+                                          DBOARD_DDAT_SIZE,
+                                          dboardCanWriteMap);
 
     if (NEW_DEVICE_REQUEST_FAILED == dboardDeviceId ||
         false == dmi_writeDeviceData(dboardDeviceId, 0, 2, (uint8_t[]) {DBOARD_PERIPHERAL_TYPE_ID,
@@ -335,7 +353,9 @@ int pr_initDeviceManager(void *arg)
     glfwSetKeyCallback(myThreadData.glfwInfo.window, pr_dboardHandleKeyPress);
 
     // Derial
-    derialDeviceId = dmi_requestNewDevice(myThreadData.managerId, DERIAL_DDAT_SIZE);
+    derialDeviceId = dmi_requestNewDevice(myThreadData.managerId,
+                                          DERIAL_DDAT_SIZE,
+                                          derialCanWriteMap);
 
     if (NEW_DEVICE_REQUEST_FAILED == derialDeviceId ||
         false == dmi_writeDeviceData(derialDeviceId, 0, 2, (uint8_t[]) {DERIAL_PERIPHERAL_TYPE_ID,

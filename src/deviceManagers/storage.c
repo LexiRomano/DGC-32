@@ -20,6 +20,31 @@ static bool         driveWrite[DARDRIVE_MAX_DRIVE_COUNT] = {0};
 static bool          driveConfigIntEn[DARDRIVE_MAX_DRIVE_COUNT] = {0};
 static driveStatus_t driveStatus[DARDRIVE_MAX_DRIVE_COUNT]      = {0};
 
+// Writeable address map
+static bool driveManagerCanWriteMap[] = 
+{
+    false, 
+    true,
+    true,
+    true,
+    true, true, true, true,
+    true,
+    true,
+    false
+};
+
+static bool driveCanWriteMap[] = 
+{
+    false,
+    false,
+    false,
+    true, true, true, true,
+    true, true, true, true,
+    true,
+    true,
+    false
+};
+
 // Returns 0xFF if not found
 static uint8_t st_deviceIdToDriveIndex(uint8_t deviceId)
 {
@@ -250,7 +275,9 @@ static bool st_insertNewDrive(char *fileName, uint8_t sectorSize, uint8_t sector
     newDriveData->fileName    = strcpy(calloc(strlen(fileName) + 1, sizeof(char)), fileName);;
     newDriveData->sectorSize  = sectorSize;
     newDriveData->sectorCount = sectorCount;
-    newDriveData->deviceId    = dmi_requestNewDevice(myThreadData.managerId, DARDRIVE_D_DDAT_SIZE);
+    newDriveData->deviceId    = dmi_requestNewDevice(myThreadData.managerId,
+                                                     DARDRIVE_D_DDAT_SIZE,
+                                                     driveCanWriteMap);
 
     if (NEW_DEVICE_REQUEST_FAILED == newDriveData->deviceId)
     {
@@ -336,7 +363,9 @@ static bool st_insertExistingDriveFile(char *fileName)
     newDriveData->fileName    = strcpy(calloc(strlen(fileName) + 1, sizeof(char)), fileName);
     newDriveData->sectorSize  = readBuf[2];
     newDriveData->sectorCount = readBuf[3];
-    newDriveData->deviceId    = dmi_requestNewDevice(myThreadData.managerId, DARDRIVE_D_DDAT_SIZE);
+    newDriveData->deviceId    = dmi_requestNewDevice(myThreadData.managerId,
+                                                     DARDRIVE_D_DDAT_SIZE,
+                                                     driveCanWriteMap);
 
     if (NEW_DEVICE_REQUEST_FAILED == newDriveData->deviceId)
     {
@@ -727,7 +756,9 @@ int st_initDeviceManager(void *arg)
     mtx_lock(myThreadData.mutex);
 
     // Request drive manager device
-    driveManagerId = dmi_requestNewDevice(myThreadData.managerId, DARDRIVE_M_DDAT_SIZE);
+    driveManagerId = dmi_requestNewDevice(myThreadData.managerId,
+                                          DARDRIVE_M_DDAT_SIZE,
+                                          driveManagerCanWriteMap);
 
     if (NEW_DEVICE_REQUEST_FAILED == driveManagerId ||
         false == dmi_writeDeviceData(driveManagerId,
