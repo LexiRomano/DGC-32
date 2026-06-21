@@ -31,7 +31,7 @@ thrd_start_t managerInitFunctions[NUM_DEVICE_MANAGERS] =
     ddm_initDeviceManager,
     pr_initDeviceManager,
     st_initDeviceManager,
-    ddm_initDeviceManager,
+    tm_initDeviceManager,
     ddm_initDeviceManager
 };
 deviceTypes_e managerDeviceType[NUM_DEVICE_MANAGERS] = 
@@ -39,7 +39,7 @@ deviceTypes_e managerDeviceType[NUM_DEVICE_MANAGERS] =
     dt_none,
     dt_peripheral,
     dt_storage,
-    dt_none,
+    dt_timer,
     dt_none
 };
 

@@ -12,6 +12,7 @@
 #include "deviceManagers/dummyDeviceManager.h"
 #include "deviceManagers/peripherals.h"
 #include "deviceManagers/storage.h"
+#include "deviceManagers/timers.h"
 
 #define NUM_DEVICE_MANAGERS 5
 #define MAX_NUM_DEVICES 32
