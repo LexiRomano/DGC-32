@@ -602,7 +602,7 @@ static void st_handleDiskReadWriteWake(uint8_t deviceId)
             return;
         }
 
-        if (sectorSize < 128)
+        if (sectorSize <= 128)
         {
             bytesRead = fread(buf, 1, sectorSize, fd);
 
@@ -632,7 +632,7 @@ static void st_handleDiskReadWriteWake(uint8_t deviceId)
             {
                 if (false == eofReached)
                 {
-                    bytesRead = fread(buf, 1, sectorSize, fd);
+                    bytesRead = fread(buf, 1, 128, fd);
 
                     if (128 != bytesRead)
                     {
@@ -692,7 +692,7 @@ static void st_handleDiskReadWriteWake(uint8_t deviceId)
             return;
         }
 
-        if (sectorSize < 128)
+        if (sectorSize <= 128)
         {
             if (false == dmi_readFromMemory(addressInMemory, sectorSize, buf))
             {
