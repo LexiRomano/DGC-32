@@ -10,26 +10,26 @@ In the case of a pop on an empty stack or the remaining size of the stack reachi
 
 ## Instructions
 
-### Push (0x0E)
+### Push (0xB9)
 
-Pushes one register to the stack. The register is selected using the regsel in the instruction (form 4).
+Pushes one register to the stack. The register is selected using the regsel in the instruction.
 
-### Pop (0x1E)
+### Pop (0xBA)
 
-Pops one value from the stack into a register. The register is selected using the regsel in the instruction (form 4).
+Pops one value from the stack into a register. The register is selected using the regsel in the instruction.
 
-### Pushall (0x2E)
+### Pushall (0xBB)
 
 Pushes all general purpose registers plus the flags register to the stack. This is done in the order of G0, G1, G2, ... G7, FL. No arguments.
 
-### Popall (0x3E)
+### Popall (0xBC)
 
 Pops values from the stack into all general purpose registers plus the flags register. This is done in the order of FL, G7, G6, ... G0. No arguments.
 
-### Peek (0x4E)
+### Peek (0xBD)
 
-Peek will read the top value of the stack into a selected register without removing it. The register is selected using the regsel in the instruction (form 4).
+Peek will read the top value of the stack into a selected register without removing it. The register is selected using the regsel in the instruction.
 
-### Return (0x5E)
+### Return (0xBE)
 
-Will jump to the location on the stack and remove it. Used in conjunction with a BRNC command which used the "push return to stack" flag in the instruction augment. No arguments.
+Will jump to the location on the stack and remove it. Used in conjunction with a branch-push command. No argument
