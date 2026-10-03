@@ -4,24 +4,212 @@ static uint8_t *memory               = NULL;
 static mtx_t    interruptAccessMutex = {0};
 
 // Exposed registers
-static uint32_t generalRegisters[8]    = {0};
-static uint32_t offsetRegisters[3]     = {0};
-static uint32_t stackBase              = 0;
-static uint16_t stackSize              = 0;
-static uint16_t stackPointer           = 0;
-static uint32_t interruptTable         = 0;
-static uint8_t  flagsRegister          = 0;
+static uint32_t generalRegisters[8] = {0};
+static uint32_t offsetRegisters[3]  = {0};
+static uint32_t stackBase           = 0;
+static uint16_t stackSize           = 0;
+static uint16_t stackPointer        = 0;
+static uint32_t interruptTable      = 0;
+static uint8_t  flagsRegister       = 0;
 
 // Internal registers
-static uint32_t programCounter         = 0;
-static uint32_t instructionRegister    = 0;
-static uint8_t  instructionAugment     = 0;
-static uint32_t argumentAugment        = 0;
-static uint32_t interruptReturnAddress = 0;
-static uint16_t currentInterrupt       = 0;
-static uint8_t  interruptHead          = 0;
-static uint8_t  interruptTail          = 0;
-static uint8_t  statusRegister         = 0;
+static uint32_t programCounter              = 0;
+static uint8_t  opCodeRegister              = 0;
+static uint8_t  regselArg1Register          = 0;
+static uint8_t  regselArg2Register          = 0;
+static uint32_t instructionArgumentRegister = 0;
+static uint32_t interruptReturnAddress      = 0;
+static uint16_t currentInterrupt            = 0;
+static uint8_t  interruptHead               = 0;
+static uint8_t  interruptTail               = 0;
+static uint8_t  statusRegister              = 0;
+
+// Fudge factor
+static uint32_t pcIncrementedBy = 0;
+
+#define FETCH_FORM_1W                 \
+do                                     \
+{                                       \
+    memcpy(&instructionArgumentRegister, \
+           &memory[programCounter+1],     \
+           sizeof(uint32_t));              \
+    programCounter+=4;                      \
+    pcIncrementedBy+=4;                      \
+} while (0)
+
+#define FETCH_FORM_1H             \
+do                                 \
+{                                   \
+    uint16_t tmp16;                  \
+    memcpy(&tmp16,                    \
+           &memory[programCounter+1],  \
+           sizeof(tmp16));              \
+    instructionArgumentRegister = tmp16; \
+    programCounter+=2;                    \
+    pcIncrementedBy+=2;                    \
+} while (0)
+
+#define FETCH_FORM_2               \
+do                                  \
+{                                    \
+    memcpy(&regselArg1Register,       \
+           &memory[programCounter],    \
+           sizeof(regselArg1Register)); \
+    programCounter+=1;                   \
+    pcIncrementedBy+=1;                   \
+} while (0)
+
+#define FETCH_FORM_2W              \
+do                                  \
+{                                    \
+    memcpy(&regselArg1Register,       \
+           &memory[programCounter],    \
+           sizeof(regselArg1Register)); \
+    memcpy(&instructionArgumentRegister, \
+           &memory[programCounter+1],     \
+           sizeof(uint32_t));              \
+    programCounter+=5;                      \
+    pcIncrementedBy+=5;                      \
+} while (0)
+
+#define FETCH_FORM_2H              \
+do                                  \
+{                                    \
+    memcpy(&regselArg1Register,       \
+           &memory[programCounter],    \
+           sizeof(regselArg1Register)); \
+    uint16_t tmp16;                      \
+    memcpy(&tmp16,                        \
+           &memory[programCounter+1],      \
+           sizeof(tmp16));                  \
+    instructionArgumentRegister = tmp16;     \
+    programCounter+=3;                        \
+    pcIncrementedBy+=3;                        \
+} while (0)
+
+#define FETCH_FORM_2C              \
+do                                  \
+{                                    \
+    memcpy(&regselArg1Register,       \
+           &memory[programCounter],    \
+           sizeof(regselArg1Register)); \
+    uint8_t tmp8;                        \
+    memcpy(&tmp8,                         \
+           &memory[programCounter+1],      \
+           sizeof(tmp8));                   \
+    instructionArgumentRegister = tmp8;      \
+    programCounter+=2;                        \
+    pcIncrementedBy+=2;                        \
+} while (0)
+
+
+#define FETCH_FORM_3  FETCH_FORM_2
+#define FETCH_FORM_3W FETCH_FORM_2W
+#define FETCH_FORM_3H FETCH_FORM_2H
+#define FETCH_FORM_3C FETCH_FORM_2C
+
+#define FETCH_FORM_4               \
+do                                  \
+{                                    \
+    memcpy(&regselArg1Register,       \
+           &memory[programCounter],    \
+           sizeof(regselArg1Register)); \
+    memcpy(&regselArg2Register,          \
+           &memory[programCounter+1],     \
+           sizeof(regselArg2Register));    \
+    programCounter+=2;                      \
+    pcIncrementedBy+=2;                      \
+} while (0)
+
+#define FETCH_FORM_4W              \
+do                                  \
+{                                    \
+    memcpy(&regselArg1Register,       \
+           &memory[programCounter],    \
+           sizeof(regselArg1Register)); \
+    memcpy(&regselArg2Register,          \
+           &memory[programCounter+1],     \
+           sizeof(regselArg2Register));    \
+    memcpy(&instructionArgumentRegister,    \
+           &memory[programCounter+2],        \
+           sizeof(uint32_t));                 \
+    programCounter+=6;                         \
+    pcIncrementedBy+=6;                         \
+} while (0)
+
+#define FETCH_FORM_4H              \
+do                                  \
+{                                    \
+    memcpy(&regselArg1Register,       \
+           &memory[programCounter],    \
+           sizeof(regselArg1Register)); \
+    memcpy(&regselArg2Register,          \
+           &memory[programCounter+1],     \
+           sizeof(regselArg2Register));    \
+    uint16_t tmp16;                         \
+    memcpy(&tmp16,                           \
+           &memory[programCounter+2],         \
+           sizeof(tmp16));                     \
+    instructionArgumentRegister = tmp16;        \
+    programCounter+=4;                           \
+    pcIncrementedBy+=4;                           \
+} while (0)
+
+#define FETCH_FORM_4C              \
+do                                  \
+{                                    \
+    memcpy(&regselArg1Register,       \
+           &memory[programCounter],    \
+           sizeof(regselArg1Register)); \
+    memcpy(&regselArg2Register,          \
+           &memory[programCounter+1],     \
+           sizeof(regselArg2Register));    \
+    uint8_t tmp8;                           \
+    memcpy(&tmp8,                            \
+           &memory[programCounter+2],         \
+           sizeof(tmp8));                      \
+    instructionArgumentRegister = tmp8;         \
+    programCounter+=3;                           \
+    pcIncrementedBy+=3;                           \
+} while (0)
+
+#define FETCH_FORM_5  FETCH_FORM_2
+#define FETCH_FORM_5W FETCH_FORM_2W
+#define FETCH_FORM_5H FETCH_FORM_2H
+#define FETCH_FORM_5C FETCH_FORM_2C
+
+#define FETCH_FORM_6  FETCH_FORM_2
+#define FETCH_FORM_6W FETCH_FORM_2W
+#define FETCH_FORM_6H FETCH_FORM_2H
+#define FETCH_FORM_6C FETCH_FORM_2C
+
+#define FETCH_FORM_7  FETCH_FORM_4
+#define FETCH_FORM_7W FETCH_FORM_4W
+#define FETCH_FORM_7H FETCH_FORM_4H
+#define FETCH_FORM_7C FETCH_FORM_4C
+
+#define FETCH_FORM_8  FETCH_FORM_4
+#define FETCH_FORM_8W FETCH_FORM_4W
+#define FETCH_FORM_8H FETCH_FORM_4H
+#define FETCH_FORM_8C FETCH_FORM_4C
+
+#define SIG_EXT_H(var)  \
+do                       \
+{                         \
+    if ((var) & 0x8000)    \
+    {                       \
+        (var) |= 0xFFFF0000; \
+    }                         \
+} while (0)
+
+#define SIG_EXT_C(var)  \
+do                       \
+{                         \
+    if ((var) & 0x80)      \
+    {                       \
+        (var) |= 0xFFFFFF00; \
+    }                         \
+} while (0)
 
 uint8_t regSize[] =
 {
@@ -341,7 +529,7 @@ static inline void transferRegToReg(uint8_t toRegsel, uint8_t fromRegsel)
     }
 }
 
-static void transferMemToReg(uint8_t toRegsel, uint32_t fromAddress, uint8_t insAug)
+static void transferMemToReg(uint8_t toRegsel, uint32_t fromAddress, uint8_t dataSize)
 {
     uint32_t  buf32 = 0;
     uint16_t  buf16 = 0;
@@ -351,155 +539,151 @@ static void transferMemToReg(uint8_t toRegsel, uint32_t fromAddress, uint8_t ins
     uint8_t  *reg8  = NULL;
 
     // Check for memory violations
-    switch (insAug & INS_AUG_WORD_SIZE_MASK)
+    switch (dataSize)
     {
-        case INS_AUG_WORD_SIZE_4:
-        case INS_AUG_WORD_SIZE_INVALID:
+        case 4:
+        {
             if (false == MEMBOUND_CAN_READ(fromAddress, 4))
             {
                 enqueueCriticalInterrupt(INTERRUPT_CODE_MEMORY_VIOLATION);
                 return;
             }
             break;
-        case INS_AUG_WORD_SIZE_2:
+        }
+        case 2:
+        {
             if (false == MEMBOUND_CAN_READ(fromAddress, 2))
             {
                 enqueueCriticalInterrupt(INTERRUPT_CODE_MEMORY_VIOLATION);
                 return;
             }
             break;
-        case INS_AUG_WORD_SIZE_1:
+        }
+        case 1:
+        {
             if (false == MEMBOUND_CAN_READ(fromAddress, 1))
             {
                 enqueueCriticalInterrupt(INTERRUPT_CODE_MEMORY_VIOLATION);
                 return;
             }
+            break;
+        }
+        default:
+        {
+            printf("EMULATOR ERROR: unexpected data size %hhu in %s:%d",
+                   dataSize, __FUNCTION__, __LINE__);
+            break;
+        }
     }
 
     switch (regSize[toRegsel])
     {
         case 4:
+        {
             reg32 = regMap4[toRegsel];
-            switch (insAug & INS_AUG_WORD_SIZE_MASK)
+            switch (dataSize)
             {
-                case INS_AUG_WORD_SIZE_4:
-                case INS_AUG_WORD_SIZE_INVALID:
+                case 4:
+                {
                     memcpy(reg32, &(memory[fromAddress]), sizeof(uint32_t));
                     break;
-                case INS_AUG_WORD_SIZE_2:
+                }
+                case 2:
+                {
                     memcpy(&buf16, &(memory[fromAddress]), sizeof(uint16_t));
                     *reg32 = (uint32_t) buf16;
                     break;
-                case INS_AUG_WORD_SIZE_1:
+                }
+                case 1:
+                {
                     memcpy(&buf8, &(memory[fromAddress]), sizeof(uint8_t));
                     *reg32 = (uint32_t) buf8;
+                    break;
+                }
             }
 
-            switch (insAug & INS_AUG_WORD_OFFSET_MASK)
-            {
-                case INS_AUG_WORD_OFFSET_1:
-                    *reg32 = *reg32 << 8;
-                    break;
-                case INS_AUG_WORD_OFFSET_2:
-                    *reg32 = *reg32 << 16;
-                    break;
-                case INS_AUG_WORD_OFFSET_3:
-                    *reg32 = *reg32 << 24;
-            }
-            
             break;
-
+        }
         case 2:
+        {
             reg16 = regMap2[toRegsel];
-            switch (insAug & INS_AUG_WORD_SIZE_MASK)
+            switch (dataSize)
             {
-                case INS_AUG_WORD_SIZE_4:
-                case INS_AUG_WORD_SIZE_INVALID:
+                case 4:
+                {
                     memcpy(&buf32, &(memory[fromAddress]), sizeof(uint32_t));
                     *reg16 = (uint16_t) buf32 & 0xFFFF;
                     break;
-                case INS_AUG_WORD_SIZE_2:
+                }
+                case 2:
+                {
                     memcpy(reg16, &(memory[fromAddress]), sizeof(uint16_t));
                     break;
-                case INS_AUG_WORD_SIZE_1:
+                }
+                case 1:
+                {
                     memcpy(&buf8, &(memory[fromAddress]), sizeof(uint8_t));
                     *reg16 = (uint16_t) buf8;
+                    break;
+                }
             }
 
-            switch (insAug & INS_AUG_WORD_OFFSET_MASK)
-            {
-                case INS_AUG_WORD_OFFSET_1:
-                    *reg16 = *reg16 << 8;
-                    break;
-                case INS_AUG_WORD_OFFSET_2:
-                    *reg16 = *reg16 << 16;
-                    break;
-                case INS_AUG_WORD_OFFSET_3:
-                    *reg16 = *reg16 << 24;
-            }
-            
             break;
-
+        }
         case 1:
+        {
             reg8 = regMap1[toRegsel];
-            switch (insAug & INS_AUG_WORD_SIZE_MASK)
+            switch (dataSize)
             {
-                case INS_AUG_WORD_SIZE_4:
-                case INS_AUG_WORD_SIZE_INVALID:
+                case 4:
+                {
                     memcpy(&buf32, &(memory[fromAddress]), sizeof(uint32_t));
                     *reg8 = (uint8_t) buf32 & 0xFF;
                     break;
-                case INS_AUG_WORD_SIZE_2:
+                }
+                case 2:
+                {
                     memcpy(&buf16, &(memory[fromAddress]), sizeof(uint16_t));
                     *reg8 = (uint8_t) buf16 & 0xFF;
                     break;
-                case INS_AUG_WORD_SIZE_1:
+                }
+                case 1:
+                {
                     memcpy(reg8, &(memory[fromAddress]), sizeof(uint8_t));
+                    break;
+                }
             }
 
-            switch (insAug & INS_AUG_WORD_OFFSET_MASK)
-            {
-                case INS_AUG_WORD_OFFSET_1:
-                    *reg8 = *reg8 << 8;
-                    break;
-                case INS_AUG_WORD_OFFSET_2:
-                    *reg8 = *reg8 << 16;
-                    break;
-                case INS_AUG_WORD_OFFSET_3:
-                    *reg8 = *reg8 << 24;
-            }
-            
             break;
+        }
     }
 
-    switch (insAug & INS_AUG_WORD_SIZE_MASK)
+    switch (dataSize)
     {
-        case INS_AUG_WORD_SIZE_4:
-        case INS_AUG_WORD_SIZE_INVALID:
+        case 4:
             mb_readFromDeviceData(fromAddress, 4);
             return;
 
-        case INS_AUG_WORD_SIZE_2:
+        case 2:
             mb_readFromDeviceData(fromAddress, 2);
             return;
 
-        case INS_AUG_WORD_SIZE_1:
+        case 1:
             mb_readFromDeviceData(fromAddress, 1);
             return;
     }
 }
 
-static void transferRegToMem(uint32_t toAddress, uint8_t fromRegsel, uint8_t insAug)
+static void transferRegToMem(uint32_t toAddress, uint8_t fromRegsel, uint8_t dataSize)
 {
     uint32_t  buf32 = 0;
     uint16_t  buf16 = 0;
     uint8_t   buf8  = 0;
 
     // Check for memory violations
-    switch (insAug & INS_AUG_WORD_SIZE_MASK)
+    switch (dataSize)
     {
-        case INS_AUG_WORD_SIZE_4:
-        case INS_AUG_WORD_SIZE_INVALID:
+        case 4:
         {
             if (false == MEMBOUND_CAN_WRITE(toAddress, 4))
             {
@@ -512,7 +696,7 @@ static void transferRegToMem(uint32_t toAddress, uint8_t fromRegsel, uint8_t ins
             }
             break;
         }
-        case INS_AUG_WORD_SIZE_2:
+        case 2:
         {
             if (false == MEMBOUND_CAN_WRITE(toAddress, 2))
             {
@@ -525,7 +709,7 @@ static void transferRegToMem(uint32_t toAddress, uint8_t fromRegsel, uint8_t ins
             }
             break;
         }
-        case INS_AUG_WORD_SIZE_1:
+        case 1:
         {
             if (false == MEMBOUND_CAN_WRITE(toAddress, 1))
             {
@@ -536,113 +720,129 @@ static void transferRegToMem(uint32_t toAddress, uint8_t fromRegsel, uint8_t ins
             {
                 return;
             }
+            break;
         }
+        default:
+        {
+            printf("EMULATOR ERROR: unexpected data size %hhu in %s:%d",
+                   dataSize, __FUNCTION__, __LINE__);
+            break;
+        }
+
     }
 
     switch (regSize[fromRegsel])
     {
         case 4:
+        {
             buf32 = *(regMap4[fromRegsel]);
 
-            switch(insAug & INS_AUG_WORD_OFFSET_MASK)
+            switch(dataSize)
             {
-                case INS_AUG_WORD_OFFSET_1:
-                    buf32 = buf32 >> 8;
-                    break;
-                case INS_AUG_WORD_OFFSET_2:
-                    buf32 = buf32 >> 16;
-                    break;
-                case INS_AUG_WORD_OFFSET_3:
-                    buf32 = buf32 >> 24;
-            }
-
-            switch(insAug & INS_AUG_WORD_SIZE_MASK)
-            {
-                case INS_AUG_WORD_SIZE_4:
-                case INS_AUG_WORD_SIZE_INVALID:
+                case 4:
+                {
                     memcpy(&(memory[toAddress]), &buf32, sizeof(uint32_t));
                     mb_writeToDeviceData(toAddress, 4, &(memory[toAddress]));
                     break;
-                case INS_AUG_WORD_SIZE_2:
+                }
+                case 2:
+                {
                     buf16 = (uint16_t) buf32 & 0xFFFF;
                     memcpy(&(memory[toAddress]), &buf16, sizeof(uint16_t));
                     mb_writeToDeviceData(toAddress, 2, &(memory[toAddress]));
                     break;
-                case INS_AUG_WORD_SIZE_1:
+                }
+                case 1:
+                {
                     buf8 = (uint8_t) buf32 & 0xFF;
                     memcpy(&(memory[toAddress]), &buf8, sizeof(uint8_t));
                     mb_writeToDeviceData(toAddress, 1, &(memory[toAddress]));
+                    break;
+                }
             }
-            
+
             return;
+        }
         case 2:
+        {
             buf16 = *(regMap2[fromRegsel]);
 
-            switch(insAug & INS_AUG_WORD_OFFSET_MASK)
+            switch(dataSize)
             {
-                case INS_AUG_WORD_OFFSET_1:
-                    buf16 = buf16 >> 8;
-                    break;
-                case INS_AUG_WORD_OFFSET_2:
-                    buf16 = buf16 >> 16;
-                    break;
-                case INS_AUG_WORD_OFFSET_3:
-                    buf16 = buf16 >> 24;
-            }
-
-            switch(insAug & INS_AUG_WORD_SIZE_MASK)
-            {
-                case INS_AUG_WORD_SIZE_4:
-                case INS_AUG_WORD_SIZE_INVALID:
+                case 4:
+                {
                     buf32 = (uint32_t) buf16;
                     memcpy(&(memory[toAddress]), &buf32, sizeof(uint32_t));
                     mb_writeToDeviceData(toAddress, 4, &(memory[toAddress]));
                     break;
-                case INS_AUG_WORD_SIZE_2:
+                }
+                case 2:
+                {
                     memcpy(&(memory[toAddress]), &buf16, sizeof(uint16_t));
                     mb_writeToDeviceData(toAddress, 2, &(memory[toAddress]));
                     break;
-                case INS_AUG_WORD_SIZE_1:
+                }
+                case 1:
+                {
                     buf8 = (uint8_t) buf16 & 0xFF;
                     memcpy(&(memory[toAddress]), &buf8, sizeof(uint8_t));
                     mb_writeToDeviceData(toAddress, 1, &(memory[toAddress]));
+                    break;
+                }
             }
-            
+
             return;
+        }
         case 1:
+        {
             buf8 = *(regMap1[fromRegsel]);
 
-            switch(insAug & INS_AUG_WORD_OFFSET_MASK)
+            switch(dataSize)
             {
-                case INS_AUG_WORD_OFFSET_1:
-                    buf8 = buf8 >> 8;
-                    break;
-                case INS_AUG_WORD_OFFSET_2:
-                    buf8 = buf8 >> 16;
-                    break;
-                case INS_AUG_WORD_OFFSET_3:
-                    buf8 = buf8 >> 24;
-            }
-
-            switch(insAug & INS_AUG_WORD_SIZE_MASK)
-            {
-                case INS_AUG_WORD_SIZE_4:
-                case INS_AUG_WORD_SIZE_INVALID:
+                case 4:
                     buf32 = (uint32_t) buf8;
                     memcpy(&(memory[toAddress]), &buf32, sizeof(uint32_t));
                     mb_writeToDeviceData(toAddress, 4, &(memory[toAddress]));
                     break;
-                case INS_AUG_WORD_SIZE_2:
+                case 2:
                     buf16 = (uint16_t) buf8;
                     memcpy(&(memory[toAddress]), &buf16, sizeof(uint16_t));
                     mb_writeToDeviceData(toAddress, 2, &(memory[toAddress]));
                     break;
-                case INS_AUG_WORD_SIZE_1:
+                case 1:
                     memcpy(&(memory[toAddress]), &buf8, sizeof(uint8_t));
                     mb_writeToDeviceData(toAddress, 1, &(memory[toAddress]));
             }
-            
+
             return;
+        }
+    }
+}
+
+static void doSigExt(uint8_t regsel, bool toChar)
+{
+    switch (regSize[regsel])
+    {
+        case 4:
+        {
+            if (toChar)
+            {
+                SIG_EXT_C(*regMap4[regsel]);
+            }
+            else
+            {
+                SIG_EXT_H(*regMap4[regsel]);
+            }
+            break;
+        }
+        case 2:
+        {
+            if (toChar)
+            {
+                SIG_EXT_C(*regMap4[regsel]);
+            }
+            break;
+        }
     }
 }
 
@@ -702,52 +902,6 @@ static inline uint32_t getInterruptHandleLocation(uint8_t iid)
     return out;
 }
 
-static bool doInterruptUtils(uint8_t intVari, uint8_t regsel, uint32_t arg)
-{
-    switch (intVari)
-    {
-        case OP_CODE_INTR_SUS_VARI:
-            statusRegister = statusRegister | STAT_REG_INT_SUS_MASK;
-            break;
-
-        case OP_CODE_INTR_RES_VARI:
-            statusRegister = statusRegister & (~(STAT_REG_INT_IN_PROG_MASK+
-                                                 STAT_REG_INT_SUS_MASK));
-            break;
-
-        case OP_CODE_INTR_TRIG_F4_VARI:
-            enqueueInterrupt(getValFromRegsel(regsel) & INTERRUPT_FULL_MASK);
-            break;
-
-        case OP_CODE_INTR_TRIG_F7_VARI:
-            enqueueInterrupt(arg & INTERRUPT_FULL_MASK);
-            break;
-
-        case OP_CODE_INTR_FIN_VARI:
-            programCounter = interruptReturnAddress;
-            statusRegister = statusRegister & (~STAT_REG_INT_IN_PROG_MASK);
-            return false;
-
-        case OP_CODE_INTR_GPR:
-            transferVarToReg(regsel, (currentInterrupt & INTERRUPT_ARG_MASK) >> INTERRUPT_ARG_OFFSET);
-            break;
-
-        case OP_CODE_INTR_GRA:
-            transferVarToReg(regsel, interruptReturnAddress);
-            break;
-
-        case OP_CODE_INTR_SRA:
-            interruptReturnAddress = getValFromRegsel(regsel);
-            break;
-        
-        default:
-            enqueueCriticalInterrupt(INTERRUPT_CODE_INVALID_INSTRUCTION);
-            return false;
-    }
-
-    return true;
-}
-
 static void detectInterrupt()
 {
     bool isCriticalInterrupt = false;
@@ -801,55 +955,160 @@ static void detectInterrupt()
     statusRegister = statusRegister | STAT_REG_INT_IN_PROG_MASK;
 }
 
-static bool doMath(uint8_t opcodeVari, uint8_t destRegsel, uint32_t a, uint32_t b)
+static void doMath(mathOperation_e operation, uint8_t destRegsel, uint32_t a, uint32_t b)
 {
-    uint32_t result = 0;
-    uint64_t buf64  = 0;
+    uint32_t result   = 0;
+    uint64_t buf64    = 0;
+    float    aFloat   = 0;
+    float    bFloat   = 0;
+    float    rFloat   = 0;
+    bool     wasFloat = false;
     bool     overflow = false;
     bool     carry    = false;
 
-    switch (opcodeVari)
+    switch (operation)
     {
-        case OP_CODE_SUB_VARI:
+        case MATH_OPERATION_SUB_INT:
             b = (~b) +1;
-        case OP_CODE_ADD_VARI:
+            // Fall through \/
+        case MATH_OPERATION_ADD_INT:
             result = a + b;
             carry  = result < a;
             overflow = carry ^
                        (0 !=(((a & 0x7FFFFFFF) + (b & 0x7FFFFFFF)) & 0x80000000));
             break;
 
-        case OP_CODE_AND_VARI:
+        case MATH_OPERATION_ADD_FL:
+        {
+            wasFloat = true;
+            aFloat = *((float*) &a);
+            bFloat = *((float*) &b);
+
+            rFloat = aFloat + bFloat;
+
+            result = *((uint32_t*) &rFloat);
+
+            break;
+        }
+        case MATH_OPERATION_SUB_FL:
+        {
+            wasFloat = true;
+            aFloat = *((float*) &a);
+            bFloat = *((float*) &b);
+
+            rFloat = aFloat - bFloat;
+
+            result = *((uint32_t*) &rFloat);
+
+            // Make the comparisons work
+            if (aFloat >= bFloat)
+            {
+                overflow = aFloat >= 0;
+            }
+            else
+            {
+                overflow = aFloat < 0;
+            }
+            break;
+        }
+        case MATH_OPERATION_MUL_INT:
+        {
+            result   = a * b;
+            overflow = a != 0 &&
+                       result / a != b;
+            break;
+        }
+        case MATH_OPERATION_MUL_FL:
+        {
+            wasFloat = true;
+            aFloat = *((float*) &a);
+            bFloat = *((float*) &b);
+
+            rFloat = aFloat * bFloat;
+
+            result = *((uint32_t*) &rFloat);
+
+            break;
+        }
+        case MATH_OPERATION_DIV_INT:
+        {
+            if (b == 0)
+            {
+                enqueueCriticalInterrupt(INTERRUPT_CODE_DIVISION_BY_ZERO);
+                return;
+            }
+            result = a / b;
+
+            break;
+        }
+        case MATH_OPERATION_DIV_FL:
+        {
+            if (b == 0)
+            {
+                enqueueCriticalInterrupt(INTERRUPT_CODE_DIVISION_BY_ZERO);
+                return;
+            }
+
+            wasFloat = true;
+            aFloat = *((float*) &a);
+            bFloat = *((float*) &b);
+
+            rFloat = aFloat / bFloat;
+
+            result = *((uint32_t*) &rFloat);
+
+            break;
+        }
+        case MATH_OPERATION_MOD:
+        {
+            if (b == 0)
+            {
+                enqueueCriticalInterrupt(INTERRUPT_CODE_DIVISION_BY_ZERO);
+                return;
+            }
+
+            result = a - (a / b * b);
+
+            break;
+        }
+        case MATH_OPERATION_AND:
+        {
             result = a & b;
             break;
-
-        case OP_CODE_OR_VARI:
+        }
+        case MATH_OPERATION_OR:
+        {
             result = a | b;
             break;
-
-        case OP_CODE_XOR_VARI:
+        }
+        case MATH_OPERATION_XOR:
+        {
             result = a ^ b;
             break;
-
-        case OP_CODE_NOT_VARI:
+        }
+        case MATH_OPERATION_NOT:
+        {
             result = ~a;
             break;
-
-        case OP_CODE_BSLT_VARI:
+        }
+        case MATH_OPERATION_BSLT:
+        {
             buf64 = (uint64_t) a;
             buf64 = buf64 << (b % 32);
             result = (uint32_t) buf64 & 0xFFFFFFFF;
             carry = (buf64 & 0x0000000100000000) != 0;
             break;
-
-        case OP_CODE_BSRT_VARI:
+        }
+        case MATH_OPERATION_BSRT:
+        {
             buf64 = ((uint64_t) a) << 32;
             buf64 = buf64 >> (b % 32);
             result = (uint32_t) ((buf64 & 0xFFFFFFFF00000000) >> 32);
             carry = (buf64 & 0x80000000) != 0;
             break;
-
-        case OP_CODE_BSLC_VARI:
+        }
+        case MATH_OPERATION_BSLC:
+        {
             buf64 = (uint64_t) a;
             carry = (flagsRegister & FLAG_C) != 0;
             for (uint8_t i = 0; i < (b % 32); i++)
@@ -861,7 +1120,9 @@ static bool doMath(uint8_t opcodeVari, uint8_t destRegsel, uint32_t a, uint32_t 
             }
             result = buf64;
             break;
-        case OP_CODE_BSRC_VARI:
+        }
+        case MATH_OPERATION_BSRC:
+        {
             buf64 = (uint64_t) a;
             carry = (flagsRegister & FLAG_C) != 0;
             for (uint8_t i = 0; i < (b % 32); i++)
@@ -872,36 +1133,76 @@ static bool doMath(uint8_t opcodeVari, uint8_t destRegsel, uint32_t a, uint32_t 
             }
             result = buf64;
             break;
-
+        }
         default:
-            enqueueCriticalInterrupt(INTERRUPT_CODE_INVALID_INSTRUCTION);
-            return false;
+        {
+            printf("EMULATOR ERROR: unexpected math operation %d in %s:%d",
+                   operation, __FUNCTION__, __LINE__);
+            return;
+        }
     }
 
     transferVarToReg(destRegsel, result);
-    flagsRegister = ((result == 0          ? FLAG_Z : 0) +
-                     (result >  0x7FFFFFFF ? FLAG_N : 0) +
-                     (carry                ? FLAG_C : 0) +
-                     (overflow             ? FLAG_V : 0));
-    return true;
+    if (wasFloat)
+    {
+        flagsRegister = ((rFloat == 0 ? FLAG_Z : 0) +
+                         (rFloat <  0 ? FLAG_N : 0) +
+                         (carry       ? FLAG_C : 0) +
+                         (overflow    ? FLAG_V : 0));
+    }
+    else
+    {
+        flagsRegister = ((result == 0          ? FLAG_Z : 0) +
+                         (result >  0x7FFFFFFF ? FLAG_N : 0) +
+                         (carry                ? FLAG_C : 0) +
+                         (overflow             ? FLAG_V : 0));
+    }
+    return;
 }
 
-static void doCompare(uint32_t a, uint32_t b)
+static void doCompare(bool isInt, uint32_t a, uint32_t b)
 {
     uint32_t result   = 0;
     bool     carry    = false;
     bool     overflow = false;
+    float    aFloat   = 0;
+    float    bFloat   = 0;
+    float    rFloat   = 0;
 
-    b = (~b) +1;
-    result = a + b;
-    carry  = result < a;
-    overflow = carry ^
-                (0 !=(((a & 0x7FFFFFFF) + (b & 0x7FFFFFFF)) & 0x80000000));
+    if (isInt)
+    {
+        b = (~b) +1;
+        result = a + b;
+        carry  = result < a;
+        overflow = carry ^
+                   (0 !=(((a & 0x7FFFFFFF) + (b & 0x7FFFFFFF)) & 0x80000000));
 
-    flagsRegister = ((result == 0          ? FLAG_Z : 0) +
-                     (result >  0x7FFFFFFF ? FLAG_N : 0) +
-                     (carry                ? FLAG_C : 0) +
-                     (overflow             ? FLAG_V : 0));
+        flagsRegister = ((result == 0          ? FLAG_Z : 0) +
+                         (result >  0x7FFFFFFF ? FLAG_N : 0) +
+                         (carry                ? FLAG_C : 0) +
+                         (overflow             ? FLAG_V : 0));
+    }
+    else
+    {
+        aFloat = *((float*) &a);
+        bFloat = *((float*) &b);
+
+        rFloat = aFloat - bFloat;
+
+        if (aFloat >= bFloat)
+        {
+            overflow = aFloat >= 0;
+        }
+        else
+        {
+            overflow = aFloat < 0;
+        }
+
+        flagsRegister = ((rFloat == 0 ? FLAG_Z : 0) +
+                         (rFloat <  0 ? FLAG_N : 0) +
+                         (carry       ? FLAG_C : 0) +
+                         (overflow    ? FLAG_V : 0));
+    }
 }
 
 static inline void push32(uint32_t data)
@@ -967,21 +1268,22 @@ static inline uint8_t pop8()
     return out;
 }
 
-static bool doStackUtils(uint8_t stackVari, uint8_t regsel)
+static void doStackUtils(stackUtil_e type, uint8_t regsel)
 {
     bool alreadyOverflowed = false;
     bool stackUnderflow    = false;
 
     alreadyOverflowed = stackPointer + STACK_OVERFLOW_THRESHOLD >= stackSize;
 
-    switch (stackVari)
+    switch (type)
     {
-        case OP_CODE_STCK_PUSH_VARI:
+        case STACK_UTIL_PUSH:
+        {
             // Check for memory violation
             if (false == MEMBOUND_CAN_WRITE(stackBase + stackPointer, regSize[regsel]))
             {
                 enqueueCriticalInterrupt(INTERRUPT_CODE_MEMORY_VIOLATION);
-                return true;
+                return;
             }
             // Push
             switch(regSize[regsel])
@@ -996,8 +1298,9 @@ static bool doStackUtils(uint8_t stackVari, uint8_t regsel)
                     push8(getValFromRegsel(regsel));
             }
             break;
-
-        case OP_CODE_STCK_POP_VARI:
+        }
+        case STACK_UTIL_POP:
+        {
             // Check for underflow
             if (stackPointer < regSize[regsel])
             {
@@ -1008,7 +1311,7 @@ static bool doStackUtils(uint8_t stackVari, uint8_t regsel)
             if (false == MEMBOUND_CAN_READ(stackBase + stackPointer - regSize[regsel], regSize[regsel]))
             {
                 enqueueCriticalInterrupt(INTERRUPT_CODE_MEMORY_VIOLATION);
-                return true;
+                return;
             }
             // Pop
             switch(regSize[regsel])
@@ -1022,45 +1325,10 @@ static bool doStackUtils(uint8_t stackVari, uint8_t regsel)
                 case 1:
                     transferVarToReg(regsel, pop8());
             }
-            return true;
-
-        case OP_CODE_STCK_PUSHALL_VARI:
-            // Check for memory violation
-            if (false == MEMBOUND_CAN_WRITE(stackBase + stackPointer, STACK_PUSHALL_SIZE))
-            {
-                enqueueCriticalInterrupt(INTERRUPT_CODE_MEMORY_VIOLATION);
-                return true;
-            }
-            // Pushall
-            for (uint8_t i = 0; i < 8; i++)
-            {
-                push32(getValFromRegsel(i));
-            }
-            push8(flagsRegister);
-            break;
-
-        case OP_CODE_STCK_POPALL_VARI:
-            // Check for underflow
-            if (stackPointer < STACK_PUSHALL_SIZE)
-            {
-                stackUnderflow = true;
-                break;
-            }
-            // Check for memory violation
-            if (false == MEMBOUND_CAN_READ(stackBase + stackPointer - STACK_PUSHALL_SIZE, STACK_PUSHALL_SIZE))
-            {
-                enqueueCriticalInterrupt(INTERRUPT_CODE_MEMORY_VIOLATION);
-                return true;
-            }
-            // Popall
-            flagsRegister = pop8();
-            for (int8_t i = 7; i >= 0; i--)
-            {
-                generalRegisters[i] = pop32();
-            }
-            return true;
-
-        case OP_CODE_STCK_PEEK_VARI:
+            return;
+        }
+        case STACK_UTIL_PEEK:
+        {
             // Check for underflow
             if (stackPointer < regSize[regsel])
             {
@@ -1071,7 +1339,7 @@ static bool doStackUtils(uint8_t stackVari, uint8_t regsel)
             if (false == MEMBOUND_CAN_READ(stackBase + stackPointer - regSize[regsel], regSize[regsel]))
             {
                 enqueueCriticalInterrupt(INTERRUPT_CODE_MEMORY_VIOLATION);
-                return true;
+                return;
             }
             // Peek
             switch(regSize[regsel])
@@ -1085,9 +1353,10 @@ static bool doStackUtils(uint8_t stackVari, uint8_t regsel)
                 case 1:
                     transferVarToReg(regsel, peek8());
             }
-            return true;
-
-        case OP_CODE_STCK_RETURN_VARI:
+            return;
+        }
+        case STACK_UTIL_RETURN:
+        {
             // Check for underflow
             if (stackPointer < 4)
             {
@@ -1098,17 +1367,19 @@ static bool doStackUtils(uint8_t stackVari, uint8_t regsel)
             if (false == MEMBOUND_CAN_READ(stackBase + stackPointer - 4, 4))
             {
                 enqueueCriticalInterrupt(INTERRUPT_CODE_MEMORY_VIOLATION);
-                return true;
+                return;
             }
             // Return
             programCounter = pop32();
-            return false;
-
+            return;
+        }
         default:
-            enqueueCriticalInterrupt(INTERRUPT_CODE_INVALID_INSTRUCTION);
-            return false;
+        {
+            printf("EMULATOR ERROR: unexpected math operation %d in %s:%d",
+                   type, __FUNCTION__, __LINE__);
+            return;
+        }
     }
-
 
     // Check for stack overflow
     if (false == alreadyOverflowed &&
@@ -1121,181 +1392,181 @@ static bool doStackUtils(uint8_t stackVari, uint8_t regsel)
         enqueueCriticalInterrupt(INTERRUPT_CODE_EMPTY_POP);
     }
 
-    return true;
+    return;
 }
 
-static bool checkBranch(uint8_t branchVari, uint8_t insAug, uint32_t address, bool isF4)
+static void protectedPush32(uint32_t val)
 {
-    bool branch = false;
-    switch (branchVari)
+    bool alreadyOverflowed = stackPointer + STACK_OVERFLOW_THRESHOLD >= stackSize;
+
+    // Check for memory violation
+    if (false == MEMBOUND_CAN_WRITE(stackBase + stackPointer, 4))
     {
-        case OP_CODE_BRNC_AL_VARI:
-            branch = true;
-            break;
+        enqueueCriticalInterrupt(INTERRUPT_CODE_MEMORY_VIOLATION);
+        return;
+    }
 
-        case OP_CODE_BRNC_EQ_VARI:
+    push32(val);
+
+    if (false == alreadyOverflowed &&
+        stackPointer + STACK_OVERFLOW_THRESHOLD >= stackSize)
+    {
+        enqueueCriticalInterrupt(INTERRUPT_CODE_CRITICAL_STACK);
+    }
+}
+
+static bool checkCondition(uint8_t compareCode)
+{
+    switch (compareCode)
+    {
+        case COMP_CODE_AL:
+        {
+            return true;
+        }
+        case COMP_CODE_EQ:
+        {
             // Z==1
-            branch = (flagsRegister & FLAG_Z) != 0;
-            break;
-
-        case OP_CODE_BRNC_NE_VARI:
-            // Z==0
-            branch = (flagsRegister & FLAG_Z) == 0;
-            break;
-
-        case OP_CODE_BRNC_HI_VARI:
-            // C==1 && Z==0
-            branch = ((flagsRegister & FLAG_C) != 0) &&
+            return (flagsRegister & FLAG_Z) != 0;
+        }
+        case COMP_CODE_NE:
+        {   // Z==0
+            return (flagsRegister & FLAG_Z) == 0;
+        }
+        case COMP_CODE_HI:
+        {   // C==1 && Z==0
+            return ((flagsRegister & FLAG_C) != 0) &&
                      ((flagsRegister & FLAG_Z) == 0);
-            break;
-
-        case OP_CODE_BRNC_HS_VARI:
-            // C==1
-            branch = (flagsRegister & FLAG_C) != 0;
-            break;
-
-        case OP_CODE_BRNC_LS_VARI:
-            // C==0 || Z==1
-            branch = ((flagsRegister & FLAG_C) == 0) ||
+        }
+        case COMP_CODE_HS:
+        {   // C==1
+            return (flagsRegister & FLAG_C) != 0;
+        }
+        case COMP_CODE_LS:
+        {   // C==0 || Z==1
+            return ((flagsRegister & FLAG_C) == 0) ||
                      ((flagsRegister & FLAG_Z) != 0);
-            break;
-
-        case OP_CODE_BRNC_LO_VARI:
-            // C==0
-            branch = (flagsRegister & FLAG_C) == 0;
-            break;
-
-        case OP_CODE_BRNC_GT_VARI:
-            // Z==0 && N==V
-            branch = ((flagsRegister & FLAG_Z) == 0) &&
+        }
+        case COMP_CODE_LO:
+        {   // C==0
+            return (flagsRegister & FLAG_C) == 0;
+        }
+        case COMP_CODE_GT:
+        {   // Z==0 && N==V
+            return ((flagsRegister & FLAG_Z) == 0) &&
                      (((flagsRegister & FLAG_N) == 0) == 
                       ((flagsRegister & FLAG_V) == 0));
-            break;
-        
-        case OP_CODE_BRNC_GE_VARI:
-            // N==V
-            branch = ((flagsRegister & FLAG_N) == 0) == 
+        }
+        case COMP_CODE_GE:
+        {   // N==V
+            return ((flagsRegister & FLAG_N) == 0) == 
                      ((flagsRegister & FLAG_V) == 0);
-            break;
-
-        case OP_CODE_BRNC_LE_VARI:
-            // Z==1 || N!=V
-             branch = ((flagsRegister & FLAG_Z) != 0) ||
+        }
+        case COMP_CODE_LE:
+        {   // Z==1 || N!=V
+            return ((flagsRegister & FLAG_Z) != 0) ||
                      (((flagsRegister & FLAG_N) == 0) != 
                       ((flagsRegister & FLAG_V) == 0));
-            break;
-        
-        case OP_CODE_BRNC_LT_VARI:
-            // N!=V
-            branch = ((flagsRegister & FLAG_N) == 0) != 
+        }
+        case COMP_CODE_LT:
+        {   // N!=V
+            return ((flagsRegister & FLAG_N) == 0) != 
                      ((flagsRegister & FLAG_V) == 0);
-            break;
-
-        case OP_CODE_BRNC_MI_VARI:
-            // N==1
-            branch = (flagsRegister & FLAG_N) != 0;
-            break;
-
-        case OP_CODE_BRNC_PZ_VARI:
-            // N==0
-            branch = (flagsRegister & FLAG_N) == 0;
-            break;
-
-        case OP_CODE_BRNC_OV_VARI:
-            // V==1
-            branch = (flagsRegister & FLAG_V) != 0;
-            break;
-
-        case OP_CODE_BRNC_NV_VARI:
-            // V==0
-            branch = (flagsRegister & FLAG_V) == 0;
-            break;
-
+        }
+        case COMP_CODE_MI:
+        {   // N==1
+            return (flagsRegister & FLAG_N) != 0;
+        }
+        case COMP_CODE_PZ:
+        {   // N==0
+            return (flagsRegister & FLAG_N) == 0;
+        }
+        case COMP_CODE_OV:
+        {   // V==1
+            return (flagsRegister & FLAG_V) != 0;
+        }
+        case COMP_CODE_NV:
+        {   // V==0
+            return (flagsRegister & FLAG_V) == 0;
+        }
         default:
+        {
             enqueueCriticalInterrupt(INTERRUPT_CODE_INVALID_INSTRUCTION);
-            return true; // Pretend we branched so we don't inc PC
+            return false; // Return false so branches don't push PC
+        }
     }
-
-    if (branch)
-    {
-        if (insAug & INS_AUG_REL_MASK)
-        {
-            address += programCounter;
-        }
-        else
-        {
-            switch (insAug & INS_AUG_OFFSET_REGSEL_MASK)
-            {
-                case INS_AUG_OFFSET_REGSEL_OA:
-                    address += offsetRegisters[0];
-                    break;
-                
-                case INS_AUG_OFFSET_REGSEL_OB:
-                    address += offsetRegisters[1];
-                    break;
-
-                case INS_AUG_OFFSET_REGSEL_OC:
-                    address += offsetRegisters[2];
-            }
-        }
-
-        if (insAug & INS_AUG_PUSH_MASK)
-        {
-            if (isF4)
-            {
-                push32(programCounter + 5);
-            }
-            else
-            {
-                push32(programCounter + 9);
-            }
-        }
-
-        programCounter = address;
-        
-    }
-
-    return branch;
 }
 
-static uint32_t applyOffset(uint8_t insAug, uint32_t baseAddress)
+static uint32_t applyOffset(addressingMode_e addressingMode, uint32_t baseAddress)
 {
-    if (0 != (insAug & INS_AUG_REL_MASK))
+    switch (addressingMode)
     {
-        if (0 != (insAug & INS_AUG_ABS_MASK))
+        case ADDRESSING_MODE_ABS:
         {
-            // Relative to PC, based on an offset register
-            switch (insAug & INS_AUG_OFFSET_REGSEL_MASK)
-            {
-                case INS_AUG_OFFSET_REGSEL_OA:
-                    return baseAddress - offsetRegisters[0] + programCounter;
-                case INS_AUG_OFFSET_REGSEL_OB:
-                    return baseAddress - offsetRegisters[1] + programCounter;
-                case INS_AUG_OFFSET_REGSEL_OC:
-                    return baseAddress - offsetRegisters[2] + programCounter;
-            }
+            return baseAddress;
         }
-        // Relative to PC
-        return baseAddress + programCounter;
-    }
-
-    switch (insAug & INS_AUG_OFFSET_REGSEL_MASK)
-    {
-        case INS_AUG_OFFSET_REGSEL_OA:
+        case ADDRESSING_MODE_PC:
+        {
+            return baseAddress + programCounter - pcIncrementedBy;
+        }
+        case ADDRESSING_MODE_OA:
+        {
             return baseAddress + offsetRegisters[0];
-        case INS_AUG_OFFSET_REGSEL_OB:
+        }
+        case ADDRESSING_MODE_OB:
+        {
             return baseAddress + offsetRegisters[1];
-        case INS_AUG_OFFSET_REGSEL_OC:
+        }
+        case ADDRESSING_MODE_OC:
+        {
             return baseAddress + offsetRegisters[2];
+        }
+        case ADDRESSING_MODE_PC_M_OA:
+        {
+            return baseAddress - offsetRegisters[0] + programCounter - pcIncrementedBy;
+        }
+        case ADDRESSING_MODE_PC_M_OB:
+        {
+            return baseAddress - offsetRegisters[1] + programCounter - pcIncrementedBy;
+        }
+        case ADDRESSING_MODE_PC_M_OC:
+        {
+            return baseAddress - offsetRegisters[2] + programCounter - pcIncrementedBy;
+        }
+        default:
+        {
+            printf("EMULATOR ERROR: unexpected addressing mode %d in %s:%d",
+                   addressingMode, __FUNCTION__, __LINE__);
+            return 0;
+        }
     }
-
-    return baseAddress;
 }
+
+#define SWAP_PRE_LOAD                                       \
+do                                                           \
+{                                                             \
+    if (opCodeRegister > 0x80)                                 \
+    {                                                           \
+        tmpA = getValFromRegsel(LOW_NIBBLE(regselArg1Register)); \
+    }                                                             \
+} while (0)
+
+#define SWAP_POST_LOAD(destAddress, wordSize)               \
+do                                                           \
+{                                                             \
+    if (opCodeRegister > 0x80)                                 \
+    {                                                           \
+        tmpB = getValFromRegsel(LOW_NIBBLE(regselArg1Register)); \
+        transferVarToReg(LOW_NIBBLE(regselArg1Register), tmpA);   \
+        transferRegToMem(destAddress,                              \
+                         LOW_NIBBLE(regselArg1Register),            \
+                         wordSize);                                  \
+        transferVarToReg(LOW_NIBBLE(regselArg1Register), tmpB);       \
+    }                                                                  \
+} while (0)
 
 static void run()
 {
-    uint32_t tmp1 = 0;
-    uint32_t tmp2 = 0;
+    uint32_t tmpA, tmpB = 0;
     #ifdef SELF_TEST
     st_defineStartTime();
     #endif //SELFTEST
@@ -1304,272 +1575,2111 @@ static void run()
     {
         detectInterrupt();
 
-        memcpy(&instructionRegister, &(memory[programCounter]), sizeof(instructionRegister));
+        memcpy(&opCodeRegister, &(memory[programCounter++]), sizeof(opCodeRegister));
+        pcIncrementedBy=1;
 
-        switch (OP_CODE_GET_BASE(instructionRegister))
+        // Avert your eyes
+        switch (opCodeRegister)
         {
-            case OP_CODE_NOOP:
+            case OP_DEBUG:
+            {
+                FETCH_FORM_2;
                 #ifdef USER_TEST
-                if (OP_CODE_DEBG == OP_CODE_GET_FULL(instructionRegister))
-                {
-                    tmp1 = getValFromRegsel(REGSEL_1_GET(instructionRegister));
-                    printf("DGC-32 DEBUG: %s = 0x%08x\n", regselNames[REGSEL_1_GET(instructionRegister)], tmp1);
-                }
-                else if (0 != OP_CODE_GET_VARI(instructionRegister))
-                {
-                    enqueueCriticalInterrupt(INTERRUPT_CODE_INVALID_INSTRUCTION);
-                    break;
-                }
-                #else 
-                if (0 != OP_CODE_GET_VARI(instructionRegister))
-                {
-                    enqueueCriticalInterrupt(INTERRUPT_CODE_INVALID_INSTRUCTION);
-                    break;
-                }
-                #endif //USER_TEST
-                programCounter+=4;
-                break;
-
-            case OP_CODE_INTR_BASE:
-                if (true == doInterruptUtils(OP_CODE_GET_VARI(instructionRegister),
-                                             REGSEL_1_GET(instructionRegister),
-                                             ARG_F7_GET(instructionRegister)))
-                {
-                    programCounter+=4;
-                }
-                break;
-
-            case OP_CODE_LOAD_F2:
-                if (0 != OP_CODE_GET_VARI(instructionRegister))
-                {
-                    enqueueCriticalInterrupt(INTERRUPT_CODE_INVALID_INSTRUCTION);
-                    break;
-                }
-                memcpy(&instructionAugment, &(memory[programCounter + 4]), sizeof(instructionAugment));
-
-                if (0 != (instructionAugment & INS_AUG_ABS_MASK))
-                {
-                    // Get absolute address
-                    transferVarToReg(REGSEL_1_GET(instructionRegister),
-                                     applyOffset(instructionAugment,
-                                                 getValFromRegsel(REGSEL_2_GET(instructionRegister))));
-                }
-                else
-                {
-                    transferMemToReg(REGSEL_1_GET(instructionRegister),
-                                     applyOffset(instructionAugment,
-                                                 getValFromRegsel(REGSEL_2_GET(instructionRegister))),
-                                     instructionAugment);
-                }
-                programCounter+=5;
-                break;
-
-            case OP_CODE_LOAD_F4:
-                if (0 != OP_CODE_GET_VARI(instructionRegister))
-                {
-                    enqueueCriticalInterrupt(INTERRUPT_CODE_INVALID_INSTRUCTION);
-                    break;
-                }
-                memcpy(&instructionAugment, &(memory[programCounter + 4]), sizeof(instructionAugment));
-                memcpy(&argumentAugment,    &(memory[programCounter + 5]), sizeof(argumentAugment));
-
-                if (0 != (instructionAugment & INS_AUG_ABS_MASK))
-                {
-                    // Get absolute address
-                    transferVarToReg(REGSEL_1_GET(instructionRegister),
-                                     applyOffset(instructionAugment, argumentAugment));
-                }
-                else
-                {
-                    transferMemToReg(REGSEL_1_GET(instructionRegister),
-                                     applyOffset(instructionAugment, argumentAugment),
-                                     instructionAugment);
-                }
-                programCounter+=9;
-                break;
-
-            case OP_CODE_STOR_F2:
-                memcpy(&instructionAugment, &(memory[programCounter + 4]), sizeof(instructionAugment));
-
-                if (OP_CODE_CHECK_FULL(instructionRegister, OP_CODE_SWAP_F2))
-                {
-                    tmp1 = getValFromRegsel(REGSEL_1_GET(instructionRegister));
-
-                    transferMemToReg(REGSEL_1_GET(instructionRegister),
-                                     applyOffset(instructionAugment,
-                                                 getValFromRegsel(REGSEL_2_GET(instructionRegister))),
-                                     instructionAugment);
-
-                    tmp2 = getValFromRegsel(REGSEL_1_GET(instructionRegister));
-
-                    transferVarToReg(REGSEL_1_GET(instructionRegister), tmp1);
-
-                    transferRegToMem(applyOffset(instructionAugment,
-                                                 getValFromRegsel(REGSEL_2_GET(instructionRegister))),
-                                     REGSEL_1_GET(instructionRegister),
-                                     instructionAugment);
-
-                    transferVarToReg(REGSEL_1_GET(instructionRegister), tmp2);
-                }
-                else if (0 == OP_CODE_GET_VARI(instructionAugment))
-                {
-                    transferRegToMem(applyOffset(instructionAugment,
-                                                 getValFromRegsel(REGSEL_2_GET(instructionRegister))),
-                                     REGSEL_1_GET(instructionRegister),
-                                     instructionAugment);
-                }
-                else
-                {
-                    enqueueCriticalInterrupt(INTERRUPT_CODE_INVALID_INSTRUCTION);
-                    break;
-                }
-
-                programCounter+=5;
-                break;
-
-            case OP_CODE_STOR_F4:
-                memcpy(&instructionAugment, &(memory[programCounter + 4]), sizeof(instructionAugment));
-                memcpy(&argumentAugment,    &(memory[programCounter + 5]), sizeof(argumentAugment));
-
-                if (OP_CODE_CHECK_FULL(instructionRegister, OP_CODE_SWAP_F4))
-                {
-                    tmp1 = getValFromRegsel(REGSEL_1_GET(instructionRegister));
-
-                    transferMemToReg(REGSEL_1_GET(instructionRegister),
-                                     applyOffset(instructionAugment, argumentAugment),
-                                     instructionAugment);
-
-                    tmp2 = getValFromRegsel(REGSEL_1_GET(instructionRegister));
-
-                    transferVarToReg(REGSEL_1_GET(instructionRegister), tmp1);
-
-                    transferRegToMem(applyOffset(instructionAugment, argumentAugment),
-                                     REGSEL_1_GET(instructionRegister),
-                                     instructionAugment);
-
-                    transferVarToReg(REGSEL_1_GET(instructionRegister), tmp2);
-                }
-                else if (0 == OP_CODE_GET_VARI(instructionAugment))
-                {
-                    transferRegToMem(applyOffset(instructionAugment, argumentAugment),
-                                     REGSEL_1_GET(instructionRegister),
-                                     instructionAugment);
-                }
-                else
-                {
-                    enqueueCriticalInterrupt(INTERRUPT_CODE_INVALID_INSTRUCTION);
-                    break;
-                }
-
-                programCounter+=9;
-                break;
-
-            case OP_CODE_MOVE_F2:
-                if (0 != OP_CODE_GET_VARI(instructionRegister))
-                {
-                    enqueueCriticalInterrupt(INTERRUPT_CODE_INVALID_INSTRUCTION);
-                    break;
-                }
-                transferRegToReg(REGSEL_1_GET(instructionRegister), REGSEL_2_GET(instructionRegister));
-                programCounter+=4;
-                break;
-
-            case OP_CODE_MOVE_F5:
-                if (0 != OP_CODE_GET_VARI(instructionRegister))
-                {
-                    enqueueCriticalInterrupt(INTERRUPT_CODE_INVALID_INSTRUCTION);
-                    break;
-                }
-                transferVarToReg(REGSEL_1_GET(instructionRegister), ARG_F5_GET(instructionRegister));
-                programCounter+=4;
-                break;
-
-            case OP_CODE_MATH_BASE_F1:
-                if (doMath(OP_CODE_GET_VARI(instructionRegister),
-                           REGSEL_1_GET(instructionRegister),
-                           getValFromRegsel(REGSEL_2_GET(instructionRegister)),
-                           getValFromRegsel(REGSEL_3_GET(instructionRegister))))
-                {
-                    programCounter+=4;
-                }
-                break;
-
-            case OP_CODE_MATH_BASE_F3:
-                if (doMath(OP_CODE_GET_VARI(instructionRegister),
-                           REGSEL_1_GET(instructionRegister),
-                           getValFromRegsel(REGSEL_2_GET(instructionRegister)),
-                           ARG_F3_GET(instructionRegister)))
-                {
-                    programCounter+=4;
-                }
-                break;
-
-            case OP_CODE_COMP_F2:
-                if (0 != OP_CODE_GET_VARI(instructionRegister))
-                {
-                    enqueueCriticalInterrupt(INTERRUPT_CODE_INVALID_INSTRUCTION);
-                    break;
-                }
-                doCompare(getValFromRegsel(REGSEL_1_GET(instructionRegister)),
-                          getValFromRegsel(REGSEL_2_GET(instructionRegister)));
-                programCounter+=4;
-                break;
-
-            case OP_CODE_COMP_F4:
-                if (0 != OP_CODE_GET_VARI(instructionRegister))
-                {
-                    enqueueCriticalInterrupt(INTERRUPT_CODE_INVALID_INSTRUCTION);
-                    break;
-                }
-                memcpy(&argumentAugment, &(memory[programCounter + 4]), sizeof(argumentAugment));
-                doCompare(getValFromRegsel(REGSEL_1_GET(instructionRegister)),
-                          argumentAugment);
-                programCounter+=8;
-                break;
-
-            case OP_CODE_BRNC_BASE_F4:
-                memcpy(&instructionAugment, &(memory[programCounter + 4]), sizeof(instructionAugment));
-
-                if (false == checkBranch(OP_CODE_GET_VARI(instructionRegister),
-                                         instructionAugment,
-                                         getValFromRegsel(REGSEL_1_GET(instructionRegister)),
-                                         true))
-                {
-                    programCounter+=5;
-                }
-
-                break;
-
-            case OP_CODE_BRNC_BASE_F6:
-                memcpy(&instructionAugment, &(memory[programCounter + 4]), sizeof(instructionAugment));
-                memcpy(&argumentAugment,    &(memory[programCounter + 5]), sizeof(argumentAugment));
-                
-                if (false == checkBranch(OP_CODE_GET_VARI(instructionRegister),
-                                         instructionAugment,
-                                         argumentAugment,
-                                         false))
-                {
-                    programCounter+=9;
-                }
-                break;
-
-            case OP_CODE_STCK_BASE:
-                if (doStackUtils(OP_CODE_GET_VARI(instructionRegister),
-                                 REGSEL_1_GET(instructionRegister)))
-                {
-                    programCounter+=4;
-                }
-                break;
-
-            case OP_CODE_TERM_BASE:
-                if (OP_CODE_CHECK_FULL(instructionRegister, OP_CODE_TERM_FULL))
-                {
-                    return;
-                }
-                // fall through
-            default:
+                printf("DGC-32 DEBUG: %s = 0x%08x\n", regselNames[LOW_NIBBLE(regselArg1Register)],
+                                                      getValFromRegsel(LOW_NIBBLE(regselArg1Register)));
+                #else
                 enqueueCriticalInterrupt(INTERRUPT_CODE_INVALID_INSTRUCTION);
+                #endif //USER_TEST
                 break;
+            }
+            case OP_MOVE_REG:
+            {
+                FETCH_FORM_3;
+                transferRegToReg(LOW_NIBBLE(regselArg1Register),
+                                 HIGH_NIBBLE(regselArg1Register));
+                break;
+            }
+            case OP_MOVE_IM_32:
+            {
+                FETCH_FORM_2W;
+                transferVarToReg(LOW_NIBBLE(regselArg1Register), instructionArgumentRegister);
+                break;
+            }
+            case OP_MOVE_IM_16:
+            {
+                FETCH_FORM_2H;
+                transferVarToReg(LOW_NIBBLE(regselArg1Register), instructionArgumentRegister);
+                break;
+            }
+            case OP_MOVE_IM_16_SIG:
+            {
+                FETCH_FORM_2H;
+                SIG_EXT_H(instructionArgumentRegister);
+                transferVarToReg(LOW_NIBBLE(regselArg1Register), instructionArgumentRegister);
+                break;
+            }
+            case OP_MOVE_IM_8:
+            {
+                FETCH_FORM_2C;
+                transferVarToReg(LOW_NIBBLE(regselArg1Register), instructionArgumentRegister);
+                break;
+            }
+            case OP_MOVE_IM_8_SIG:
+            {
+                FETCH_FORM_2C;
+                SIG_EXT_C(instructionArgumentRegister);
+                transferVarToReg(LOW_NIBBLE(regselArg1Register), instructionArgumentRegister);
+                break;
+            }
+            case OP_LOAD_32_REG_ABS:
+            case OP_SWAP_32_REG_ABS:
+            {
+                FETCH_FORM_3;
+                SWAP_PRE_LOAD;
+                transferMemToReg(LOW_NIBBLE(regselArg1Register),
+                                 getValFromRegsel(HIGH_NIBBLE(regselArg1Register)),
+                                 4);
+                SWAP_POST_LOAD(getValFromRegsel(HIGH_NIBBLE(regselArg1Register)),
+                               4);
+                break;
+            }
+            case OP_LOAD_32_REG_PC:
+            case OP_SWAP_32_REG_PC:
+            {
+                FETCH_FORM_3;
+                SWAP_PRE_LOAD;
+                transferMemToReg(LOW_NIBBLE(regselArg1Register),
+                                 applyOffset(ADDRESSING_MODE_PC,
+                                             getValFromRegsel(HIGH_NIBBLE(regselArg1Register))),
+                                 4);
+                SWAP_POST_LOAD(applyOffset(ADDRESSING_MODE_PC,
+                                           getValFromRegsel(HIGH_NIBBLE(regselArg1Register))),
+                               4);
+                break;
+            }
+            case OP_LOAD_32_REG_OA:
+            case OP_SWAP_32_REG_OA:
+            {
+                FETCH_FORM_3;
+                SWAP_PRE_LOAD;
+                transferMemToReg(LOW_NIBBLE(regselArg1Register),
+                                 applyOffset(ADDRESSING_MODE_OA,
+                                             getValFromRegsel(HIGH_NIBBLE(regselArg1Register))),
+                                 4);
+                SWAP_POST_LOAD(applyOffset(ADDRESSING_MODE_OA,
+                                           getValFromRegsel(HIGH_NIBBLE(regselArg1Register))),
+                               4);
+                break;
+            }
+            case OP_LOAD_32_REG_OB:
+            case OP_SWAP_32_REG_OB:
+            {
+                FETCH_FORM_3;
+                SWAP_PRE_LOAD;
+                transferMemToReg(LOW_NIBBLE(regselArg1Register),
+                                 applyOffset(ADDRESSING_MODE_OB,
+                                             getValFromRegsel(HIGH_NIBBLE(regselArg1Register))),
+                                 4);
+                SWAP_POST_LOAD(applyOffset(ADDRESSING_MODE_OB,
+                                           getValFromRegsel(HIGH_NIBBLE(regselArg1Register))),
+                               4);
+                break;
+            }
+            case OP_LOAD_32_REG_OC:
+            case OP_SWAP_32_REG_OC:
+            {
+                FETCH_FORM_3;
+                SWAP_PRE_LOAD;
+                transferMemToReg(LOW_NIBBLE(regselArg1Register),
+                                 applyOffset(ADDRESSING_MODE_OC,
+                                             getValFromRegsel(HIGH_NIBBLE(regselArg1Register))),
+                                 4);
+                SWAP_POST_LOAD(applyOffset(ADDRESSING_MODE_OC,
+                                           getValFromRegsel(HIGH_NIBBLE(regselArg1Register))),
+                               4);
+                break;
+            }
+            case OP_LOAD_16_REG_ABS:
+            case OP_SWAP_16_REG_ABS:
+            {
+                FETCH_FORM_3;
+                SWAP_PRE_LOAD;
+                transferMemToReg(LOW_NIBBLE(regselArg1Register),
+                                 getValFromRegsel(HIGH_NIBBLE(regselArg1Register)),
+                                 2);
+                SWAP_POST_LOAD(getValFromRegsel(HIGH_NIBBLE(regselArg1Register)),
+                               2);
+                break;
+            }
+            case OP_LOAD_16_REG_PC:
+            case OP_SWAP_16_REG_PC:
+            {
+                FETCH_FORM_3;
+                SWAP_PRE_LOAD;
+                transferMemToReg(LOW_NIBBLE(regselArg1Register),
+                                 applyOffset(ADDRESSING_MODE_PC,
+                                             getValFromRegsel(HIGH_NIBBLE(regselArg1Register))),
+                                 2);
+                SWAP_POST_LOAD(applyOffset(ADDRESSING_MODE_PC,
+                                           getValFromRegsel(HIGH_NIBBLE(regselArg1Register))),
+                               2);
+                break;
+            }
+            case OP_LOAD_16_REG_OA:
+            case OP_SWAP_16_REG_OA:
+            {
+                FETCH_FORM_3;
+                SWAP_PRE_LOAD;
+                transferMemToReg(LOW_NIBBLE(regselArg1Register),
+                                 applyOffset(ADDRESSING_MODE_OA,
+                                             getValFromRegsel(HIGH_NIBBLE(regselArg1Register))),
+                                 2);
+                SWAP_POST_LOAD(applyOffset(ADDRESSING_MODE_OA,
+                                           getValFromRegsel(HIGH_NIBBLE(regselArg1Register))),
+                               2);
+                break;
+            }
+            case OP_LOAD_16_REG_OB:
+            case OP_SWAP_16_REG_OB:
+            {
+                FETCH_FORM_3;
+                SWAP_PRE_LOAD;
+                transferMemToReg(LOW_NIBBLE(regselArg1Register),
+                                 applyOffset(ADDRESSING_MODE_OB,
+                                             getValFromRegsel(HIGH_NIBBLE(regselArg1Register))),
+                                 2);
+                SWAP_POST_LOAD(applyOffset(ADDRESSING_MODE_OB,
+                                           getValFromRegsel(HIGH_NIBBLE(regselArg1Register))),
+                               2);
+                break;
+            }
+            case OP_LOAD_16_REG_OC:
+            case OP_SWAP_16_REG_OC:
+            {
+                FETCH_FORM_3;
+                SWAP_PRE_LOAD;
+                transferMemToReg(LOW_NIBBLE(regselArg1Register),
+                                 applyOffset(ADDRESSING_MODE_OC,
+                                             getValFromRegsel(HIGH_NIBBLE(regselArg1Register))),
+                                 2);
+                SWAP_POST_LOAD(applyOffset(ADDRESSING_MODE_OC,
+                                           getValFromRegsel(HIGH_NIBBLE(regselArg1Register))),
+                               2);
+                break;
+            }
+            case OP_LOAD_16_SIG_REG_ABS:
+            case OP_SWAP_16_SIG_REG_ABS:
+            {
+                FETCH_FORM_3;
+                SWAP_PRE_LOAD;
+                transferMemToReg(LOW_NIBBLE(regselArg1Register),
+                                 getValFromRegsel(HIGH_NIBBLE(regselArg1Register)),
+                                 2);
+                doSigExt(LOW_NIBBLE(regselArg1Register), false);
+                SWAP_POST_LOAD(getValFromRegsel(HIGH_NIBBLE(regselArg1Register)),
+                               2);
+                break;
+            }
+            case OP_LOAD_16_SIG_REG_PC:
+            case OP_SWAP_16_SIG_REG_PC:
+            {
+                FETCH_FORM_3;
+                SWAP_PRE_LOAD;
+                transferMemToReg(LOW_NIBBLE(regselArg1Register),
+                                 applyOffset(ADDRESSING_MODE_PC,
+                                             getValFromRegsel(HIGH_NIBBLE(regselArg1Register))),
+                                 2);
+                doSigExt(LOW_NIBBLE(regselArg1Register), false);
+                SWAP_POST_LOAD(applyOffset(ADDRESSING_MODE_PC,
+                                           getValFromRegsel(HIGH_NIBBLE(regselArg1Register))),
+                               2);
+                break;
+            }
+            case OP_LOAD_16_SIG_REG_OA:
+            case OP_SWAP_16_SIG_REG_OA:
+            {
+                FETCH_FORM_3;
+                SWAP_PRE_LOAD;
+                transferMemToReg(LOW_NIBBLE(regselArg1Register),
+                                 applyOffset(ADDRESSING_MODE_OA,
+                                             getValFromRegsel(HIGH_NIBBLE(regselArg1Register))),
+                                 2);
+                doSigExt(LOW_NIBBLE(regselArg1Register), false);
+                SWAP_POST_LOAD(applyOffset(ADDRESSING_MODE_OA,
+                                           getValFromRegsel(HIGH_NIBBLE(regselArg1Register))),
+                               2);
+                break;
+            }
+            case OP_LOAD_16_SIG_REG_OB:
+            case OP_SWAP_16_SIG_REG_OB:
+            {
+                FETCH_FORM_3;
+                SWAP_PRE_LOAD;
+                transferMemToReg(LOW_NIBBLE(regselArg1Register),
+                                 applyOffset(ADDRESSING_MODE_OB,
+                                             getValFromRegsel(HIGH_NIBBLE(regselArg1Register))),
+                                 2);
+                doSigExt(LOW_NIBBLE(regselArg1Register), false);
+                SWAP_POST_LOAD(applyOffset(ADDRESSING_MODE_OB,
+                                           getValFromRegsel(HIGH_NIBBLE(regselArg1Register))),
+                               2);
+                break;
+            }
+            case OP_LOAD_16_SIG_REG_OC:
+            case OP_SWAP_16_SIG_REG_OC:
+            {
+                FETCH_FORM_3;
+                SWAP_PRE_LOAD;
+                transferMemToReg(LOW_NIBBLE(regselArg1Register),
+                                 applyOffset(ADDRESSING_MODE_OC,
+                                             getValFromRegsel(HIGH_NIBBLE(regselArg1Register))),
+                                 2);
+                doSigExt(LOW_NIBBLE(regselArg1Register), false);
+                SWAP_POST_LOAD(applyOffset(ADDRESSING_MODE_OC,
+                                           getValFromRegsel(HIGH_NIBBLE(regselArg1Register))),
+                               2);
+                break;
+            }
+            case OP_LOAD_8_REG_ABS:
+            case OP_SWAP_8_REG_ABS:
+            {
+                FETCH_FORM_3;
+                SWAP_PRE_LOAD;
+                transferMemToReg(LOW_NIBBLE(regselArg1Register),
+                                 getValFromRegsel(HIGH_NIBBLE(regselArg1Register)),
+                                 1);
+                SWAP_POST_LOAD(getValFromRegsel(HIGH_NIBBLE(regselArg1Register)),
+                               1);
+                break;
+            }
+            case OP_LOAD_8_REG_PC:
+            case OP_SWAP_8_REG_PC:
+            {
+                FETCH_FORM_3;
+                SWAP_PRE_LOAD;
+                transferMemToReg(LOW_NIBBLE(regselArg1Register),
+                                 applyOffset(ADDRESSING_MODE_PC,
+                                             getValFromRegsel(HIGH_NIBBLE(regselArg1Register))),
+                                 1);
+                SWAP_POST_LOAD(applyOffset(ADDRESSING_MODE_PC,
+                                           getValFromRegsel(HIGH_NIBBLE(regselArg1Register))),
+                               1);
+                break;
+            }
+            case OP_LOAD_8_REG_OA:
+            case OP_SWAP_8_REG_OA:
+            {
+                FETCH_FORM_3;
+                SWAP_PRE_LOAD;
+                transferMemToReg(LOW_NIBBLE(regselArg1Register),
+                                 applyOffset(ADDRESSING_MODE_OA,
+                                             getValFromRegsel(HIGH_NIBBLE(regselArg1Register))),
+                                 1);
+                SWAP_POST_LOAD(applyOffset(ADDRESSING_MODE_OA,
+                                           getValFromRegsel(HIGH_NIBBLE(regselArg1Register))),
+                               1);
+                break;
+            }
+            case OP_LOAD_8_REG_OB:
+            case OP_SWAP_8_REG_OB:
+            {
+                FETCH_FORM_3;
+                SWAP_PRE_LOAD;
+                transferMemToReg(LOW_NIBBLE(regselArg1Register),
+                                 applyOffset(ADDRESSING_MODE_OB,
+                                             getValFromRegsel(HIGH_NIBBLE(regselArg1Register))),
+                                 1);
+                SWAP_POST_LOAD(applyOffset(ADDRESSING_MODE_OB,
+                                           getValFromRegsel(HIGH_NIBBLE(regselArg1Register))),
+                               1);
+                break;
+            }
+            case OP_LOAD_8_REG_OC:
+            case OP_SWAP_8_REG_OC:
+            {
+                FETCH_FORM_3;
+                SWAP_PRE_LOAD;
+                transferMemToReg(LOW_NIBBLE(regselArg1Register),
+                                 applyOffset(ADDRESSING_MODE_OC,
+                                             getValFromRegsel(HIGH_NIBBLE(regselArg1Register))),
+                                 1);
+                SWAP_POST_LOAD(applyOffset(ADDRESSING_MODE_OC,
+                                           getValFromRegsel(HIGH_NIBBLE(regselArg1Register))),
+                               1);
+                break;
+            }
+            case OP_LOAD_8_SIG_REG_ABS:
+            case OP_SWAP_8_SIG_REG_ABS:
+            {
+                FETCH_FORM_3;
+                SWAP_PRE_LOAD;
+                transferMemToReg(LOW_NIBBLE(regselArg1Register),
+                                 getValFromRegsel(HIGH_NIBBLE(regselArg1Register)),
+                                 1);
+                doSigExt(LOW_NIBBLE(regselArg1Register), true);
+                SWAP_POST_LOAD(getValFromRegsel(HIGH_NIBBLE(regselArg1Register)),
+                               1);
+                break;
+            }
+            case OP_LOAD_8_SIG_REG_PC:
+            case OP_SWAP_8_SIG_REG_PC:
+            {
+                FETCH_FORM_3;
+                SWAP_PRE_LOAD;
+                transferMemToReg(LOW_NIBBLE(regselArg1Register),
+                                 applyOffset(ADDRESSING_MODE_PC,
+                                             getValFromRegsel(HIGH_NIBBLE(regselArg1Register))),
+                                 1);
+                doSigExt(LOW_NIBBLE(regselArg1Register), true);
+                SWAP_POST_LOAD(applyOffset(ADDRESSING_MODE_PC,
+                                           getValFromRegsel(HIGH_NIBBLE(regselArg1Register))),
+                               1);
+                break;
+            }
+            case OP_LOAD_8_SIG_REG_OA:
+            case OP_SWAP_8_SIG_REG_OA:
+            {
+                FETCH_FORM_3;
+                SWAP_PRE_LOAD;
+                transferMemToReg(LOW_NIBBLE(regselArg1Register),
+                                 applyOffset(ADDRESSING_MODE_OA,
+                                             getValFromRegsel(HIGH_NIBBLE(regselArg1Register))),
+                                 1);
+                doSigExt(LOW_NIBBLE(regselArg1Register), true);
+                SWAP_POST_LOAD(applyOffset(ADDRESSING_MODE_OA,
+                                           getValFromRegsel(HIGH_NIBBLE(regselArg1Register))),
+                               1);
+                break;
+            }
+            case OP_LOAD_8_SIG_REG_OB:
+            case OP_SWAP_8_SIG_REG_OB:
+            {
+                FETCH_FORM_3;
+                SWAP_PRE_LOAD;
+                transferMemToReg(LOW_NIBBLE(regselArg1Register),
+                                 applyOffset(ADDRESSING_MODE_OB,
+                                             getValFromRegsel(HIGH_NIBBLE(regselArg1Register))),
+                                 1);
+                doSigExt(LOW_NIBBLE(regselArg1Register), true);
+                SWAP_POST_LOAD(applyOffset(ADDRESSING_MODE_OB,
+                                           getValFromRegsel(HIGH_NIBBLE(regselArg1Register))),
+                               1);
+                break;
+            }
+            case OP_LOAD_8_SIG_REG_OC:
+            case OP_SWAP_8_SIG_REG_OC:
+            {
+                FETCH_FORM_3;
+                SWAP_PRE_LOAD;
+                transferMemToReg(LOW_NIBBLE(regselArg1Register),
+                                 applyOffset(ADDRESSING_MODE_OC,
+                                             getValFromRegsel(HIGH_NIBBLE(regselArg1Register))),
+                                 1);
+                doSigExt(LOW_NIBBLE(regselArg1Register), true);
+                SWAP_POST_LOAD(applyOffset(ADDRESSING_MODE_OC,
+                                           getValFromRegsel(HIGH_NIBBLE(regselArg1Register))),
+                               1);
+                break;
+            }
+            case OP_LOAD_32_IM_ABS:
+            case OP_SWAP_32_IM_ABS:
+            {
+                FETCH_FORM_2W;
+                SWAP_PRE_LOAD;
+                transferMemToReg(LOW_NIBBLE(regselArg1Register),
+                                 instructionArgumentRegister,
+                                 4);
+                SWAP_POST_LOAD(instructionArgumentRegister,
+                               4);
+                break;
+            }
+            case OP_LOAD_32_IM_PC:
+            case OP_SWAP_32_IM_PC:
+            {
+                FETCH_FORM_2W;
+                SWAP_PRE_LOAD;
+                transferMemToReg(LOW_NIBBLE(regselArg1Register),
+                                 applyOffset(ADDRESSING_MODE_PC,
+                                             instructionArgumentRegister),
+                                 4);
+                SWAP_POST_LOAD(applyOffset(ADDRESSING_MODE_PC,
+                                           instructionArgumentRegister),
+                               4);
+                break;
+            }
+            case OP_LOAD_32_IM_OA:
+            case OP_SWAP_32_IM_OA:
+            {
+                FETCH_FORM_2W;
+                SWAP_PRE_LOAD;
+                transferMemToReg(LOW_NIBBLE(regselArg1Register),
+                                 applyOffset(ADDRESSING_MODE_OA,
+                                             instructionArgumentRegister),
+                                 4);
+                SWAP_POST_LOAD(applyOffset(ADDRESSING_MODE_OA,
+                                           instructionArgumentRegister),
+                               4);
+                break;
+            }
+            case OP_LOAD_32_IM_OB:
+            case OP_SWAP_32_IM_OB:
+            {
+                FETCH_FORM_2W;
+                SWAP_PRE_LOAD;
+                transferMemToReg(LOW_NIBBLE(regselArg1Register),
+                                 applyOffset(ADDRESSING_MODE_OB,
+                                             instructionArgumentRegister),
+                                 4);
+                SWAP_POST_LOAD(applyOffset(ADDRESSING_MODE_OB,
+                                           instructionArgumentRegister),
+                               4);
+                break;
+            }
+            case OP_LOAD_32_IM_OC:
+            case OP_SWAP_32_IM_OC:
+            {
+                FETCH_FORM_2W;
+                SWAP_PRE_LOAD;
+                transferMemToReg(LOW_NIBBLE(regselArg1Register),
+                                 applyOffset(ADDRESSING_MODE_OC,
+                                             instructionArgumentRegister),
+                                 4);
+                SWAP_POST_LOAD(applyOffset(ADDRESSING_MODE_OC,
+                                           instructionArgumentRegister),
+                               4);
+                break;
+            }
+            case OP_LOAD_16_IM_ABS:
+            case OP_SWAP_16_IM_ABS:
+            {
+                FETCH_FORM_2W;
+                SWAP_PRE_LOAD;
+                transferMemToReg(LOW_NIBBLE(regselArg1Register),
+                                 instructionArgumentRegister,
+                                 2);
+                SWAP_POST_LOAD(instructionArgumentRegister,
+                               2);
+                break;
+            }
+            case OP_LOAD_16_IM_PC:
+            case OP_SWAP_16_IM_PC:
+            {
+                FETCH_FORM_2W;
+                SWAP_PRE_LOAD;
+                transferMemToReg(LOW_NIBBLE(regselArg1Register),
+                                 applyOffset(ADDRESSING_MODE_PC,
+                                             instructionArgumentRegister),
+                                 2);
+                SWAP_POST_LOAD(applyOffset(ADDRESSING_MODE_PC,
+                                           instructionArgumentRegister),
+                               2);
+                break;
+            }
+            case OP_LOAD_16_IM_OA:
+            case OP_SWAP_16_IM_OA:
+            {
+                FETCH_FORM_2W;
+                SWAP_PRE_LOAD;
+                transferMemToReg(LOW_NIBBLE(regselArg1Register),
+                                 applyOffset(ADDRESSING_MODE_OA,
+                                             instructionArgumentRegister),
+                                 2);
+                SWAP_POST_LOAD(applyOffset(ADDRESSING_MODE_OA,
+                                           instructionArgumentRegister),
+                               2);
+                break;
+            }
+            case OP_LOAD_16_IM_OB:
+            case OP_SWAP_16_IM_OB:
+            {
+                FETCH_FORM_2W;
+                SWAP_PRE_LOAD;
+                transferMemToReg(LOW_NIBBLE(regselArg1Register),
+                                 applyOffset(ADDRESSING_MODE_OB,
+                                             instructionArgumentRegister),
+                                 2);
+                SWAP_POST_LOAD(applyOffset(ADDRESSING_MODE_OB,
+                                           instructionArgumentRegister),
+                               2);
+                break;
+            }
+            case OP_LOAD_16_IM_OC:
+            case OP_SWAP_16_IM_OC:
+            {
+                FETCH_FORM_2W;
+                SWAP_PRE_LOAD;
+                transferMemToReg(LOW_NIBBLE(regselArg1Register),
+                                 applyOffset(ADDRESSING_MODE_OC,
+                                             instructionArgumentRegister),
+                                 2);
+                SWAP_POST_LOAD(applyOffset(ADDRESSING_MODE_OC,
+                                           instructionArgumentRegister),
+                               2);
+                break;
+            }
+            case OP_LOAD_16_SIG_IM_ABS:
+            case OP_SWAP_16_SIG_IM_ABS:
+            {
+                FETCH_FORM_2W;
+                SWAP_PRE_LOAD;
+                transferMemToReg(LOW_NIBBLE(regselArg1Register),
+                                 instructionArgumentRegister,
+                                 2);
+                doSigExt(LOW_NIBBLE(regselArg1Register), false);
+                SWAP_POST_LOAD(instructionArgumentRegister,
+                               2);
+                break;
+            }
+            case OP_LOAD_16_SIG_IM_PC:
+            case OP_SWAP_16_SIG_IM_PC:
+            {
+                FETCH_FORM_2W;
+                SWAP_PRE_LOAD;
+                transferMemToReg(LOW_NIBBLE(regselArg1Register),
+                                 applyOffset(ADDRESSING_MODE_PC,
+                                             instructionArgumentRegister),
+                                 2);
+                doSigExt(LOW_NIBBLE(regselArg1Register), false);
+                SWAP_POST_LOAD(applyOffset(ADDRESSING_MODE_PC,
+                                           instructionArgumentRegister),
+                               2);
+                break;
+            }
+            case OP_LOAD_16_SIG_IM_OA:
+            case OP_SWAP_16_SIG_IM_OA:
+            {
+                FETCH_FORM_2W;
+                SWAP_PRE_LOAD;
+                transferMemToReg(LOW_NIBBLE(regselArg1Register),
+                                 applyOffset(ADDRESSING_MODE_OA,
+                                             instructionArgumentRegister),
+                                 2);
+                doSigExt(LOW_NIBBLE(regselArg1Register), false);
+                SWAP_POST_LOAD(applyOffset(ADDRESSING_MODE_OA,
+                                           instructionArgumentRegister),
+                               2);
+                break;
+            }
+            case OP_LOAD_16_SIG_IM_OB:
+            case OP_SWAP_16_SIG_IM_OB:
+            {
+                FETCH_FORM_2W;
+                SWAP_PRE_LOAD;
+                transferMemToReg(LOW_NIBBLE(regselArg1Register),
+                                 applyOffset(ADDRESSING_MODE_OB,
+                                             instructionArgumentRegister),
+                                 2);
+                doSigExt(LOW_NIBBLE(regselArg1Register), false);
+                SWAP_POST_LOAD(applyOffset(ADDRESSING_MODE_OB,
+                                           instructionArgumentRegister),
+                               2);
+                break;
+            }
+            case OP_LOAD_16_SIG_IM_OC:
+            case OP_SWAP_16_SIG_IM_OC:
+            {
+                FETCH_FORM_2W;
+                SWAP_PRE_LOAD;
+                transferMemToReg(LOW_NIBBLE(regselArg1Register),
+                                 applyOffset(ADDRESSING_MODE_OC,
+                                             instructionArgumentRegister),
+                                 2);
+                doSigExt(LOW_NIBBLE(regselArg1Register), false);
+                SWAP_POST_LOAD(applyOffset(ADDRESSING_MODE_OC,
+                                           instructionArgumentRegister),
+                               2);
+                break;
+            }
+            case OP_LOAD_8_IM_ABS:
+            case OP_SWAP_8_IM_ABS:
+            {
+                FETCH_FORM_2W;
+                SWAP_PRE_LOAD;
+                transferMemToReg(LOW_NIBBLE(regselArg1Register),
+                                 instructionArgumentRegister,
+                                 1);
+                SWAP_POST_LOAD(instructionArgumentRegister,
+                               1);
+                break;
+            }
+            case OP_LOAD_8_IM_PC:
+            case OP_SWAP_8_IM_PC:
+            {
+                FETCH_FORM_2W;
+                SWAP_PRE_LOAD;
+                transferMemToReg(LOW_NIBBLE(regselArg1Register),
+                                 applyOffset(ADDRESSING_MODE_PC,
+                                             instructionArgumentRegister),
+                                 1);
+                SWAP_POST_LOAD(applyOffset(ADDRESSING_MODE_PC,
+                                           instructionArgumentRegister),
+                               1);
+                break;
+            }
+            case OP_LOAD_8_IM_OA:
+            case OP_SWAP_8_IM_OA:
+            {
+                FETCH_FORM_2W;
+                SWAP_PRE_LOAD;
+                transferMemToReg(LOW_NIBBLE(regselArg1Register),
+                                 applyOffset(ADDRESSING_MODE_OA,
+                                             instructionArgumentRegister),
+                                 1);
+                SWAP_POST_LOAD(applyOffset(ADDRESSING_MODE_OA,
+                                           instructionArgumentRegister),
+                               1);
+                break;
+            }
+            case OP_LOAD_8_IM_OB:
+            case OP_SWAP_8_IM_OB:
+            {
+                FETCH_FORM_2W;
+                SWAP_PRE_LOAD;
+                transferMemToReg(LOW_NIBBLE(regselArg1Register),
+                                 applyOffset(ADDRESSING_MODE_OB,
+                                             instructionArgumentRegister),
+                                 1);
+                SWAP_POST_LOAD(applyOffset(ADDRESSING_MODE_OB,
+                                           instructionArgumentRegister),
+                               1);
+                break;
+            }
+            case OP_LOAD_8_IM_OC:
+            case OP_SWAP_8_IM_OC:
+            {
+                FETCH_FORM_2W;
+                SWAP_PRE_LOAD;
+                transferMemToReg(LOW_NIBBLE(regselArg1Register),
+                                 applyOffset(ADDRESSING_MODE_OC,
+                                             instructionArgumentRegister),
+                                 1);
+                SWAP_POST_LOAD(applyOffset(ADDRESSING_MODE_OC,
+                                           instructionArgumentRegister),
+                               1);
+                break;
+            }
+            case OP_LOAD_8_SIG_IM_ABS:
+            case OP_SWAP_8_SIG_IM_ABS:
+            {
+                FETCH_FORM_2W;
+                SWAP_PRE_LOAD;
+                transferMemToReg(LOW_NIBBLE(regselArg1Register),
+                                 instructionArgumentRegister,
+                                 1);
+                doSigExt(LOW_NIBBLE(regselArg1Register), false);
+                SWAP_POST_LOAD(instructionArgumentRegister,
+                               1);
+                break;
+            }
+            case OP_LOAD_8_SIG_IM_PC:
+            case OP_SWAP_8_SIG_IM_PC:
+            {
+                FETCH_FORM_2W;
+                SWAP_PRE_LOAD;
+                transferMemToReg(LOW_NIBBLE(regselArg1Register),
+                                 applyOffset(ADDRESSING_MODE_PC,
+                                             instructionArgumentRegister),
+                                 1);
+                doSigExt(LOW_NIBBLE(regselArg1Register), false);
+                SWAP_POST_LOAD(applyOffset(ADDRESSING_MODE_PC,
+                                           instructionArgumentRegister),
+                               1);
+                break;
+            }
+            case OP_LOAD_8_SIG_IM_OA:
+            case OP_SWAP_8_SIG_IM_OA:
+            {
+                FETCH_FORM_2W;
+                SWAP_PRE_LOAD;
+                transferMemToReg(LOW_NIBBLE(regselArg1Register),
+                                 applyOffset(ADDRESSING_MODE_OA,
+                                             instructionArgumentRegister),
+                                 1);
+                doSigExt(LOW_NIBBLE(regselArg1Register), false);
+                SWAP_POST_LOAD(applyOffset(ADDRESSING_MODE_OA,
+                                           instructionArgumentRegister),
+                               1);
+                break;
+            }
+            case OP_LOAD_8_SIG_IM_OB:
+            case OP_SWAP_8_SIG_IM_OB:
+            {
+                FETCH_FORM_2W;
+                SWAP_PRE_LOAD;
+                transferMemToReg(LOW_NIBBLE(regselArg1Register),
+                                 applyOffset(ADDRESSING_MODE_OB,
+                                             instructionArgumentRegister),
+                                 1);
+                doSigExt(LOW_NIBBLE(regselArg1Register), false);
+                SWAP_POST_LOAD(applyOffset(ADDRESSING_MODE_OB,
+                                           instructionArgumentRegister),
+                               1);
+                break;
+            }
+            case OP_LOAD_8_SIG_IM_OC:
+            case OP_SWAP_8_SIG_IM_OC:
+            {
+                FETCH_FORM_2W;
+                SWAP_PRE_LOAD;
+                transferMemToReg(LOW_NIBBLE(regselArg1Register),
+                                 applyOffset(ADDRESSING_MODE_OC,
+                                             instructionArgumentRegister),
+                                 1);
+                doSigExt(LOW_NIBBLE(regselArg1Register), false);
+                SWAP_POST_LOAD(applyOffset(ADDRESSING_MODE_OC,
+                                           instructionArgumentRegister),
+                               1);
+                break;
+            }
+            case OP_STOR_32_REG_ABS:
+            {
+                FETCH_FORM_3;
+                transferRegToMem(getValFromRegsel(HIGH_NIBBLE(regselArg1Register)),
+                                 LOW_NIBBLE(regselArg1Register),
+                                 4);
+                break;
+            }
+            case OP_STOR_32_REG_PC:
+            {
+                FETCH_FORM_3;
+                transferRegToMem(applyOffset(ADDRESSING_MODE_PC,
+                                             getValFromRegsel(HIGH_NIBBLE(regselArg1Register))),
+                                 LOW_NIBBLE(regselArg1Register),
+                                 4);
+                break;
+            }
+            case OP_STOR_32_REG_OA:
+            {
+                FETCH_FORM_3;
+                transferRegToMem(applyOffset(ADDRESSING_MODE_OA,
+                                             getValFromRegsel(HIGH_NIBBLE(regselArg1Register))),
+                                 LOW_NIBBLE(regselArg1Register),
+                                 4);
+                break;
+            }
+            case OP_STOR_32_REG_OB:
+            {
+                FETCH_FORM_3;
+                transferRegToMem(applyOffset(ADDRESSING_MODE_OB,
+                                             getValFromRegsel(HIGH_NIBBLE(regselArg1Register))),
+                                 LOW_NIBBLE(regselArg1Register),
+                                 4);
+                break;
+            }
+            case OP_STOR_32_REG_OC:
+            {
+                FETCH_FORM_3;
+                transferRegToMem(applyOffset(ADDRESSING_MODE_OC,
+                                             getValFromRegsel(HIGH_NIBBLE(regselArg1Register))),
+                                 LOW_NIBBLE(regselArg1Register),
+                                 4);
+                break;
+            }
+            case OP_STOR_16_REG_ABS:
+            {
+                FETCH_FORM_3;
+                transferRegToMem(getValFromRegsel(HIGH_NIBBLE(regselArg1Register)),
+                                 LOW_NIBBLE(regselArg1Register),
+                                 2);
+                break;
+            }
+            case OP_STOR_16_REG_PC:
+            {
+                FETCH_FORM_3;
+                transferRegToMem(applyOffset(ADDRESSING_MODE_PC,
+                                             getValFromRegsel(HIGH_NIBBLE(regselArg1Register))),
+                                 LOW_NIBBLE(regselArg1Register),
+                                 2);
+                break;
+            }
+            case OP_STOR_16_REG_OA:
+            {
+                FETCH_FORM_3;
+                transferRegToMem(applyOffset(ADDRESSING_MODE_OA,
+                                             getValFromRegsel(HIGH_NIBBLE(regselArg1Register))),
+                                 LOW_NIBBLE(regselArg1Register),
+                                 2);
+                break;
+            }
+            case OP_STOR_16_REG_OB:
+            {
+                FETCH_FORM_3;
+                transferRegToMem(applyOffset(ADDRESSING_MODE_OB,
+                                             getValFromRegsel(HIGH_NIBBLE(regselArg1Register))),
+                                 LOW_NIBBLE(regselArg1Register),
+                                 2);
+                break;
+            }
+            case OP_STOR_16_REG_OC:
+            {
+                FETCH_FORM_3;
+                transferRegToMem(applyOffset(ADDRESSING_MODE_OC,
+                                             getValFromRegsel(HIGH_NIBBLE(regselArg1Register))),
+                                 LOW_NIBBLE(regselArg1Register),
+                                 2);
+                break;
+            }
+            case OP_STOR_8_REG_ABS:
+            {
+                FETCH_FORM_3;
+                transferRegToMem(getValFromRegsel(HIGH_NIBBLE(regselArg1Register)),
+                                 LOW_NIBBLE(regselArg1Register),
+                                 1);
+                break;
+            }
+            case OP_STOR_8_REG_PC:
+            {
+                FETCH_FORM_3;
+                transferRegToMem(applyOffset(ADDRESSING_MODE_PC,
+                                             getValFromRegsel(HIGH_NIBBLE(regselArg1Register))),
+                                 LOW_NIBBLE(regselArg1Register),
+                                 1);
+                break;
+            }
+            case OP_STOR_8_REG_OA:
+            {
+                FETCH_FORM_3;
+                transferRegToMem(applyOffset(ADDRESSING_MODE_OA,
+                                             getValFromRegsel(HIGH_NIBBLE(regselArg1Register))),
+                                 LOW_NIBBLE(regselArg1Register),
+                                 1);
+                break;
+            }
+            case OP_STOR_8_REG_OB:
+            {
+                FETCH_FORM_3;
+                transferRegToMem(applyOffset(ADDRESSING_MODE_OB,
+                                             getValFromRegsel(HIGH_NIBBLE(regselArg1Register))),
+                                 LOW_NIBBLE(regselArg1Register),
+                                 1);
+                break;
+            }
+            case OP_STOR_8_REG_OC:
+            {
+                FETCH_FORM_3;
+                transferRegToMem(applyOffset(ADDRESSING_MODE_OC,
+                                             getValFromRegsel(HIGH_NIBBLE(regselArg1Register))),
+                                 LOW_NIBBLE(regselArg1Register),
+                                 1);
+                break;
+            }
+            case OP_STOR_32_IM_ABS:
+            {
+                FETCH_FORM_2W;
+                transferRegToMem(instructionArgumentRegister,
+                                 LOW_NIBBLE(regselArg1Register),
+                                 4);
+                break;
+            }
+            case OP_STOR_32_IM_PC:
+            {
+                FETCH_FORM_2W;
+                transferRegToMem(applyOffset(ADDRESSING_MODE_PC,
+                                             instructionArgumentRegister),
+                                 LOW_NIBBLE(regselArg1Register),
+                                 4);
+                break;
+            }
+            case OP_STOR_32_IM_OA:
+            {
+                FETCH_FORM_2W;
+                transferRegToMem(applyOffset(ADDRESSING_MODE_OA,
+                                             instructionArgumentRegister),
+                                 LOW_NIBBLE(regselArg1Register),
+                                 4);
+                break;
+            }
+            case OP_STOR_32_IM_OB:
+            {
+                FETCH_FORM_2W;
+                transferRegToMem(applyOffset(ADDRESSING_MODE_OB,
+                                             instructionArgumentRegister),
+                                 LOW_NIBBLE(regselArg1Register),
+                                 4);
+                break;
+            }
+            case OP_STOR_32_IM_OC:
+            {
+                FETCH_FORM_2W;
+                transferRegToMem(applyOffset(ADDRESSING_MODE_OC,
+                                             instructionArgumentRegister),
+                                 LOW_NIBBLE(regselArg1Register),
+                                 4);
+                break;
+            }
+            case OP_STOR_16_IM_ABS:
+            {
+                FETCH_FORM_2W;
+                transferRegToMem(instructionArgumentRegister,
+                                 LOW_NIBBLE(regselArg1Register),
+                                 2);
+                break;
+            }
+            case OP_STOR_16_IM_PC:
+            {
+                FETCH_FORM_2W;
+                transferRegToMem(applyOffset(ADDRESSING_MODE_PC,
+                                             instructionArgumentRegister),
+                                 LOW_NIBBLE(regselArg1Register),
+                                 2);
+                break;
+            }
+            case OP_STOR_16_IM_OA:
+            {
+                FETCH_FORM_2W;
+                transferRegToMem(applyOffset(ADDRESSING_MODE_OA,
+                                             instructionArgumentRegister),
+                                 LOW_NIBBLE(regselArg1Register),
+                                 2);
+                break;
+            }
+            case OP_STOR_16_IM_OB:
+            {
+                FETCH_FORM_2W;
+                transferRegToMem(applyOffset(ADDRESSING_MODE_OB,
+                                             instructionArgumentRegister),
+                                 LOW_NIBBLE(regselArg1Register),
+                                 2);
+                break;
+            }
+            case OP_STOR_16_IM_OC:
+            {
+                FETCH_FORM_2W;
+                transferRegToMem(applyOffset(ADDRESSING_MODE_OC,
+                                             instructionArgumentRegister),
+                                 LOW_NIBBLE(regselArg1Register),
+                                 2);
+                break;
+            }
+            case OP_STOR_8_IM_ABS:
+            {
+                FETCH_FORM_2W;
+                transferRegToMem(instructionArgumentRegister,
+                                 LOW_NIBBLE(regselArg1Register),
+                                 1);
+                break;
+            }
+            case OP_STOR_8_IM_PC:
+            {
+                FETCH_FORM_2W;
+                transferRegToMem(applyOffset(ADDRESSING_MODE_PC,
+                                             instructionArgumentRegister),
+                                 LOW_NIBBLE(regselArg1Register),
+                                 1);
+                break;
+            }
+            case OP_STOR_8_IM_OA:
+            {
+                FETCH_FORM_2W;
+                transferRegToMem(applyOffset(ADDRESSING_MODE_OA,
+                                             instructionArgumentRegister),
+                                 LOW_NIBBLE(regselArg1Register),
+                                 1);
+                break;
+            }
+            case OP_STOR_8_IM_OB:
+            {
+                FETCH_FORM_2W;
+                transferRegToMem(applyOffset(ADDRESSING_MODE_OB,
+                                             instructionArgumentRegister),
+                                 LOW_NIBBLE(regselArg1Register),
+                                 1);
+                break;
+            }
+            case OP_STOR_8_IM_OC:
+            {
+                FETCH_FORM_2W;
+                transferRegToMem(applyOffset(ADDRESSING_MODE_OC,
+                                             instructionArgumentRegister),
+                                 LOW_NIBBLE(regselArg1Register),
+                                 1);
+                break;
+            }
+            case OP_ADD_INT_REG:
+            {
+                FETCH_FORM_4;
+                doMath(MATH_OPERATION_ADD_INT,
+                       LOW_NIBBLE (regselArg1Register),
+                       getValFromRegsel(HIGH_NIBBLE(regselArg1Register)),
+                       getValFromRegsel(LOW_NIBBLE (regselArg2Register)));
+                break;
+            }
+            case OP_ADD_INT_IM_32:
+            {
+                FETCH_FORM_3W;
+                doMath(MATH_OPERATION_ADD_INT,
+                       LOW_NIBBLE (regselArg1Register),
+                       getValFromRegsel(HIGH_NIBBLE(regselArg1Register)),
+                       instructionArgumentRegister);
+                break;
+            }
+            case OP_ADD_INT_IM_16:
+            {
+                FETCH_FORM_3H;
+                doMath(MATH_OPERATION_ADD_INT,
+                       LOW_NIBBLE (regselArg1Register),
+                       getValFromRegsel(HIGH_NIBBLE(regselArg1Register)),
+                       instructionArgumentRegister);
+                break;
+            }
+            case OP_ADD_INT_IM_16_SIG:
+            {
+                FETCH_FORM_3H;
+                SIG_EXT_H(instructionArgumentRegister);
+                doMath(MATH_OPERATION_ADD_INT,
+                       LOW_NIBBLE (regselArg1Register),
+                       getValFromRegsel(HIGH_NIBBLE(regselArg1Register)),
+                       instructionArgumentRegister);
+                break;
+            }
+            case OP_ADD_INT_IM_8:
+            {
+                FETCH_FORM_3C;
+                doMath(MATH_OPERATION_ADD_INT,
+                       LOW_NIBBLE (regselArg1Register),
+                       getValFromRegsel(HIGH_NIBBLE(regselArg1Register)),
+                       instructionArgumentRegister);
+                break;
+            }
+            case OP_ADD_INT_IM_8_SIG:
+            {
+                FETCH_FORM_3C;
+                SIG_EXT_C(instructionArgumentRegister);
+                doMath(MATH_OPERATION_ADD_INT,
+                       LOW_NIBBLE (regselArg1Register),
+                       getValFromRegsel(HIGH_NIBBLE(regselArg1Register)),
+                       instructionArgumentRegister);
+                break;
+            }
+            case OP_ADD_FL_REG:
+            {
+                FETCH_FORM_4;
+                doMath(MATH_OPERATION_ADD_FL,
+                       LOW_NIBBLE (regselArg1Register),
+                       getValFromRegsel(HIGH_NIBBLE(regselArg1Register)),
+                       getValFromRegsel(LOW_NIBBLE (regselArg2Register)));
+                break;
+            }
+            case OP_ADD_FL_IM:
+            {
+                FETCH_FORM_4;
+                doMath(MATH_OPERATION_ADD_FL,
+                       LOW_NIBBLE (regselArg1Register),
+                       getValFromRegsel(HIGH_NIBBLE(regselArg1Register)),
+                       instructionArgumentRegister);
+                break;
+            }
+            case OP_SUB_INT_REG:
+            {
+                FETCH_FORM_4;
+                doMath(MATH_OPERATION_SUB_INT,
+                       LOW_NIBBLE (regselArg1Register),
+                       getValFromRegsel(HIGH_NIBBLE(regselArg1Register)),
+                       getValFromRegsel(LOW_NIBBLE (regselArg2Register)));
+                break;
+            }
+            case OP_SUB_INT_IM_32:
+            {
+                FETCH_FORM_3W;
+                doMath(MATH_OPERATION_SUB_INT,
+                       LOW_NIBBLE (regselArg1Register),
+                       getValFromRegsel(HIGH_NIBBLE(regselArg1Register)),
+                       instructionArgumentRegister);
+                break;
+            }
+            case OP_SUB_INT_IM_16:
+            {
+                FETCH_FORM_3H;
+                doMath(MATH_OPERATION_SUB_INT,
+                       LOW_NIBBLE (regselArg1Register),
+                       getValFromRegsel(HIGH_NIBBLE(regselArg1Register)),
+                       instructionArgumentRegister);
+                break;
+            }
+            case OP_SUB_INT_IM_16_SIG:
+            {
+                FETCH_FORM_3H;
+                SIG_EXT_H(instructionArgumentRegister);
+                doMath(MATH_OPERATION_SUB_INT,
+                       LOW_NIBBLE (regselArg1Register),
+                       getValFromRegsel(HIGH_NIBBLE(regselArg1Register)),
+                       instructionArgumentRegister);
+                break;
+            }
+            case OP_SUB_INT_IM_8:
+            {
+                FETCH_FORM_3C;
+                doMath(MATH_OPERATION_SUB_INT,
+                       LOW_NIBBLE (regselArg1Register),
+                       getValFromRegsel(HIGH_NIBBLE(regselArg1Register)),
+                       instructionArgumentRegister);
+                break;
+            }
+            case OP_SUB_INT_IM_8_SIG:
+            {
+                FETCH_FORM_3C;
+                SIG_EXT_C(instructionArgumentRegister);
+                doMath(MATH_OPERATION_SUB_INT,
+                       LOW_NIBBLE (regselArg1Register),
+                       getValFromRegsel(HIGH_NIBBLE(regselArg1Register)),
+                       instructionArgumentRegister);
+                break;
+            }
+            case OP_SUB_FL_REG:
+            {
+                FETCH_FORM_4;
+                doMath(MATH_OPERATION_SUB_FL,
+                       LOW_NIBBLE (regselArg1Register),
+                       getValFromRegsel(HIGH_NIBBLE(regselArg1Register)),
+                       getValFromRegsel(LOW_NIBBLE (regselArg2Register)));
+                break;
+            }
+            case OP_SUB_FL_IM:
+            {
+                FETCH_FORM_4;
+                doMath(MATH_OPERATION_SUB_FL,
+                       LOW_NIBBLE (regselArg1Register),
+                       getValFromRegsel(HIGH_NIBBLE(regselArg1Register)),
+                       instructionArgumentRegister);
+                break;
+            }
+            case OP_MUL_INT_REG:
+            {
+                FETCH_FORM_4;
+                doMath(MATH_OPERATION_MUL_INT,
+                       LOW_NIBBLE (regselArg1Register),
+                       getValFromRegsel(HIGH_NIBBLE(regselArg1Register)),
+                       getValFromRegsel(LOW_NIBBLE (regselArg2Register)));
+                break;
+            }
+            case OP_MUL_INT_IM_32:
+            {
+                FETCH_FORM_3W;
+                doMath(MATH_OPERATION_MUL_INT,
+                       LOW_NIBBLE (regselArg1Register),
+                       getValFromRegsel(HIGH_NIBBLE(regselArg1Register)),
+                       instructionArgumentRegister);
+                break;
+            }
+            case OP_MUL_INT_IM_16:
+            {
+                FETCH_FORM_3H;
+                doMath(MATH_OPERATION_MUL_INT,
+                       LOW_NIBBLE (regselArg1Register),
+                       getValFromRegsel(HIGH_NIBBLE(regselArg1Register)),
+                       instructionArgumentRegister);
+                break;
+            }
+            case OP_MUL_INT_IM_16_SIG:
+            {
+                FETCH_FORM_3H;
+                SIG_EXT_H(instructionArgumentRegister);
+                doMath(MATH_OPERATION_MUL_INT,
+                       LOW_NIBBLE (regselArg1Register),
+                       getValFromRegsel(HIGH_NIBBLE(regselArg1Register)),
+                       instructionArgumentRegister);
+                break;
+            }
+            case OP_MUL_INT_IM_8:
+            {
+                FETCH_FORM_3C;
+                doMath(MATH_OPERATION_MUL_INT,
+                       LOW_NIBBLE (regselArg1Register),
+                       getValFromRegsel(HIGH_NIBBLE(regselArg1Register)),
+                       instructionArgumentRegister);
+                break;
+            }
+            case OP_MUL_INT_IM_8_SIG:
+            {
+                FETCH_FORM_3C;
+                SIG_EXT_C(instructionArgumentRegister);
+                doMath(MATH_OPERATION_MUL_INT,
+                       LOW_NIBBLE (regselArg1Register),
+                       getValFromRegsel(HIGH_NIBBLE(regselArg1Register)),
+                       instructionArgumentRegister);
+                break;
+            }
+            case OP_MUL_FL_REG:
+            {
+                FETCH_FORM_4;
+                doMath(MATH_OPERATION_MUL_FL,
+                       LOW_NIBBLE (regselArg1Register),
+                       getValFromRegsel(HIGH_NIBBLE(regselArg1Register)),
+                       getValFromRegsel(LOW_NIBBLE (regselArg2Register)));
+                break;
+            }
+            case OP_MUL_FL_IM:
+            {
+                FETCH_FORM_4;
+                doMath(MATH_OPERATION_MUL_FL,
+                       LOW_NIBBLE (regselArg1Register),
+                       getValFromRegsel(HIGH_NIBBLE(regselArg1Register)),
+                       instructionArgumentRegister);
+                break;
+            }
+            case OP_DIV_INT_REG:
+            {
+                FETCH_FORM_4;
+                doMath(MATH_OPERATION_DIV_INT,
+                       LOW_NIBBLE (regselArg1Register),
+                       getValFromRegsel(HIGH_NIBBLE(regselArg1Register)),
+                       getValFromRegsel(LOW_NIBBLE (regselArg2Register)));
+                break;
+            }
+            case OP_DIV_INT_IM_32:
+            {
+                FETCH_FORM_3W;
+                doMath(MATH_OPERATION_DIV_INT,
+                       LOW_NIBBLE (regselArg1Register),
+                       getValFromRegsel(HIGH_NIBBLE(regselArg1Register)),
+                       instructionArgumentRegister);
+                break;
+            }
+            case OP_DIV_INT_IM_16:
+            {
+                FETCH_FORM_3H;
+                doMath(MATH_OPERATION_DIV_INT,
+                       LOW_NIBBLE (regselArg1Register),
+                       getValFromRegsel(HIGH_NIBBLE(regselArg1Register)),
+                       instructionArgumentRegister);
+                break;
+            }
+            case OP_DIV_INT_IM_16_SIG:
+            {
+                FETCH_FORM_3H;
+                SIG_EXT_H(instructionArgumentRegister);
+                doMath(MATH_OPERATION_DIV_INT,
+                       LOW_NIBBLE (regselArg1Register),
+                       getValFromRegsel(HIGH_NIBBLE(regselArg1Register)),
+                       instructionArgumentRegister);
+                break;
+            }
+            case OP_DIV_INT_IM_8:
+            {
+                FETCH_FORM_3C;
+                doMath(MATH_OPERATION_DIV_INT,
+                       LOW_NIBBLE (regselArg1Register),
+                       getValFromRegsel(HIGH_NIBBLE(regselArg1Register)),
+                       instructionArgumentRegister);
+                break;
+            }
+            case OP_DIV_INT_IM_8_SIG:
+            {
+                FETCH_FORM_3C;
+                SIG_EXT_C(instructionArgumentRegister);
+                doMath(MATH_OPERATION_DIV_INT,
+                       LOW_NIBBLE (regselArg1Register),
+                       getValFromRegsel(HIGH_NIBBLE(regselArg1Register)),
+                       instructionArgumentRegister);
+                break;
+            }
+            case OP_DIV_FL_REG:
+            {
+                FETCH_FORM_4;
+                doMath(MATH_OPERATION_DIV_FL,
+                       LOW_NIBBLE (regselArg1Register),
+                       getValFromRegsel(HIGH_NIBBLE(regselArg1Register)),
+                       getValFromRegsel(LOW_NIBBLE (regselArg2Register)));
+                break;
+            }
+            case OP_DIV_FL_IM:
+            {
+                FETCH_FORM_4;
+                doMath(MATH_OPERATION_DIV_FL,
+                       LOW_NIBBLE (regselArg1Register),
+                       getValFromRegsel(HIGH_NIBBLE(regselArg1Register)),
+                       instructionArgumentRegister);
+                break;
+            }
+            case OP_MOD_INT_REG:
+            {
+                FETCH_FORM_4;
+                doMath(MATH_OPERATION_MOD,
+                       LOW_NIBBLE (regselArg1Register),
+                       getValFromRegsel(HIGH_NIBBLE(regselArg1Register)),
+                       getValFromRegsel(LOW_NIBBLE (regselArg2Register)));
+                break;
+            }
+            case OP_MOD_INT_IM_32:
+            {
+                FETCH_FORM_3W;
+                doMath(MATH_OPERATION_MOD,
+                       LOW_NIBBLE (regselArg1Register),
+                       getValFromRegsel(HIGH_NIBBLE(regselArg1Register)),
+                       instructionArgumentRegister);
+                break;
+            }
+            case OP_MOD_INT_IM_16:
+            {
+                FETCH_FORM_3H;
+                doMath(MATH_OPERATION_MOD,
+                       LOW_NIBBLE (regselArg1Register),
+                       getValFromRegsel(HIGH_NIBBLE(regselArg1Register)),
+                       instructionArgumentRegister);
+                break;
+            }
+            case OP_MOD_INT_IM_16_SIG:
+            {
+                FETCH_FORM_3H;
+                SIG_EXT_H(instructionArgumentRegister);
+                doMath(MATH_OPERATION_MOD,
+                       LOW_NIBBLE (regselArg1Register),
+                       getValFromRegsel(HIGH_NIBBLE(regselArg1Register)),
+                       instructionArgumentRegister);
+                break;
+            }
+            case OP_MOD_INT_IM_8:
+            {
+                FETCH_FORM_3C;
+                doMath(MATH_OPERATION_MOD,
+                       LOW_NIBBLE (regselArg1Register),
+                       getValFromRegsel(HIGH_NIBBLE(regselArg1Register)),
+                       instructionArgumentRegister);
+                break;
+            }
+            case OP_MOD_INT_IM_8_SIG:
+            {
+                FETCH_FORM_3C;
+                SIG_EXT_C(instructionArgumentRegister);
+                doMath(MATH_OPERATION_MOD,
+                       LOW_NIBBLE (regselArg1Register),
+                       getValFromRegsel(HIGH_NIBBLE(regselArg1Register)),
+                       instructionArgumentRegister);
+                break;
+            }
+            case OP_AND_REG:
+            {
+                FETCH_FORM_4;
+                doMath(MATH_OPERATION_AND,
+                       LOW_NIBBLE (regselArg1Register),
+                       getValFromRegsel(HIGH_NIBBLE(regselArg1Register)),
+                       getValFromRegsel(LOW_NIBBLE (regselArg2Register)));
+                break;
+            }
+            case OP_AND_IM_32:
+            {
+                FETCH_FORM_3W;
+                doMath(MATH_OPERATION_AND,
+                       LOW_NIBBLE (regselArg1Register),
+                       getValFromRegsel(HIGH_NIBBLE(regselArg1Register)),
+                       instructionArgumentRegister);
+                break;
+            }
+            case OP_AND_IM_16:
+            {
+                FETCH_FORM_3H;
+                doMath(MATH_OPERATION_AND,
+                       LOW_NIBBLE (regselArg1Register),
+                       getValFromRegsel(HIGH_NIBBLE(regselArg1Register)),
+                       instructionArgumentRegister);
+                break;
+            }
+            case OP_AND_IM_8:
+            {
+                FETCH_FORM_3C;
+                doMath(MATH_OPERATION_AND,
+                       LOW_NIBBLE (regselArg1Register),
+                       getValFromRegsel(HIGH_NIBBLE(regselArg1Register)),
+                       instructionArgumentRegister);
+                break;
+            }
+            case OP_OR_REG:
+            {
+                FETCH_FORM_4;
+                doMath(MATH_OPERATION_OR,
+                       LOW_NIBBLE (regselArg1Register),
+                       getValFromRegsel(HIGH_NIBBLE(regselArg1Register)),
+                       getValFromRegsel(LOW_NIBBLE (regselArg2Register)));
+                break;
+            }
+            case OP_OR_IM_32:
+            {
+                FETCH_FORM_3W;
+                doMath(MATH_OPERATION_OR,
+                       LOW_NIBBLE (regselArg1Register),
+                       getValFromRegsel(HIGH_NIBBLE(regselArg1Register)),
+                       instructionArgumentRegister);
+                break;
+            }
+            case OP_OR_IM_16:
+            {
+                FETCH_FORM_3H;
+                doMath(MATH_OPERATION_OR,
+                       LOW_NIBBLE (regselArg1Register),
+                       getValFromRegsel(HIGH_NIBBLE(regselArg1Register)),
+                       instructionArgumentRegister);
+                break;
+            }
+            case OP_OR_IM_8:
+            {
+                FETCH_FORM_3C;
+                doMath(MATH_OPERATION_OR,
+                       LOW_NIBBLE (regselArg1Register),
+                       getValFromRegsel(HIGH_NIBBLE(regselArg1Register)),
+                       instructionArgumentRegister);
+                break;
+            }
+            case OP_XOR_REG:
+            {
+                FETCH_FORM_4;
+                doMath(MATH_OPERATION_XOR,
+                       LOW_NIBBLE (regselArg1Register),
+                       getValFromRegsel(HIGH_NIBBLE(regselArg1Register)),
+                       getValFromRegsel(LOW_NIBBLE (regselArg2Register)));
+                break;
+            }
+            case OP_XOR_IM_32:
+            {
+                FETCH_FORM_3W;
+                doMath(MATH_OPERATION_XOR,
+                       LOW_NIBBLE (regselArg1Register),
+                       getValFromRegsel(HIGH_NIBBLE(regselArg1Register)),
+                       instructionArgumentRegister);
+                break;
+            }
+            case OP_XOR_IM_16:
+            {
+                FETCH_FORM_3H;
+                doMath(MATH_OPERATION_XOR,
+                       LOW_NIBBLE (regselArg1Register),
+                       getValFromRegsel(HIGH_NIBBLE(regselArg1Register)),
+                       instructionArgumentRegister);
+                break;
+            }
+            case OP_XOR_IM_8:
+            {
+                FETCH_FORM_3C;
+                doMath(MATH_OPERATION_XOR,
+                       LOW_NIBBLE (regselArg1Register),
+                       getValFromRegsel(HIGH_NIBBLE(regselArg1Register)),
+                       instructionArgumentRegister);
+                break;
+            }
+            case OP_BSLT_REG:
+            {
+                FETCH_FORM_4;
+                doMath(MATH_OPERATION_BSLT,
+                       LOW_NIBBLE (regselArg1Register),
+                       getValFromRegsel(HIGH_NIBBLE(regselArg1Register)),
+                       getValFromRegsel(LOW_NIBBLE (regselArg2Register)));
+                break;
+            }
+            case OP_BSLT_IM_8:
+            {
+                FETCH_FORM_3C;
+                doMath(MATH_OPERATION_BSLT,
+                       LOW_NIBBLE (regselArg1Register),
+                       getValFromRegsel(HIGH_NIBBLE(regselArg1Register)),
+                       instructionArgumentRegister);
+                break;
+            }
+            case OP_BSLC_REG:
+            {
+                FETCH_FORM_4;
+                doMath(MATH_OPERATION_BSLC,
+                       LOW_NIBBLE (regselArg1Register),
+                       getValFromRegsel(HIGH_NIBBLE(regselArg1Register)),
+                       getValFromRegsel(LOW_NIBBLE (regselArg2Register)));
+                break;
+            }
+            case OP_BSLC_IM_8:
+            {
+                FETCH_FORM_3C;
+                doMath(MATH_OPERATION_BSLC,
+                       LOW_NIBBLE (regselArg1Register),
+                       getValFromRegsel(HIGH_NIBBLE(regselArg1Register)),
+                       instructionArgumentRegister);
+                break;
+            }
+            case OP_BSRT_REG:
+            {
+                FETCH_FORM_4;
+                doMath(MATH_OPERATION_BSRT,
+                       LOW_NIBBLE (regselArg1Register),
+                       getValFromRegsel(HIGH_NIBBLE(regselArg1Register)),
+                       getValFromRegsel(LOW_NIBBLE (regselArg2Register)));
+                break;
+            }
+            case OP_BSRT_IM_8:
+            {
+                FETCH_FORM_3C;
+                doMath(MATH_OPERATION_BSRT,
+                       LOW_NIBBLE (regselArg1Register),
+                       getValFromRegsel(HIGH_NIBBLE(regselArg1Register)),
+                       instructionArgumentRegister);
+                break;
+            }
+            case OP_BSRC_REG:
+            {
+                FETCH_FORM_4;
+                doMath(MATH_OPERATION_BSRC,
+                       LOW_NIBBLE (regselArg1Register),
+                       getValFromRegsel(HIGH_NIBBLE(regselArg1Register)),
+                       getValFromRegsel(LOW_NIBBLE (regselArg2Register)));
+                break;
+            }
+            case OP_BSRC_IM_8:
+            {
+                FETCH_FORM_3C;
+                doMath(MATH_OPERATION_BSRC,
+                       LOW_NIBBLE (regselArg1Register),
+                       getValFromRegsel(HIGH_NIBBLE(regselArg1Register)),
+                       instructionArgumentRegister);
+                break;
+            }
+            case OP_NOT_REG:
+            {
+                FETCH_FORM_3;
+                doMath(MATH_OPERATION_BSRC,
+                       LOW_NIBBLE (regselArg1Register),
+                       getValFromRegsel(HIGH_NIBBLE(regselArg1Register)),
+                       0);
+                break;
+            }
+            case OP_COMP_INT_REG:
+            {
+                FETCH_FORM_3;
+                doCompare(true,
+                          getValFromRegsel(LOW_NIBBLE (regselArg1Register)),
+                          getValFromRegsel(HIGH_NIBBLE(regselArg1Register)));
+                break;
+            }
+            case OP_COMP_INT_IM_32:
+            {
+                FETCH_FORM_2W;
+                doCompare(true,
+                          getValFromRegsel(LOW_NIBBLE (regselArg1Register)),
+                          instructionArgumentRegister);
+                break;
+            }
+            case OP_COMP_INT_IM_16:
+            {
+                FETCH_FORM_2H;
+                doCompare(true,
+                          getValFromRegsel(LOW_NIBBLE (regselArg1Register)),
+                          instructionArgumentRegister);
+                break;
+            }
+            case OP_COMP_INT_IM_16_SIG:
+            {
+                FETCH_FORM_2H;
+                SIG_EXT_H(instructionArgumentRegister);
+                doCompare(true,
+                          getValFromRegsel(LOW_NIBBLE (regselArg1Register)),
+                          instructionArgumentRegister);
+                break;
+            }
+            case OP_COMP_INT_IM_8:
+            {
+                FETCH_FORM_2C;
+                doCompare(true,
+                          getValFromRegsel(LOW_NIBBLE (regselArg1Register)),
+                          instructionArgumentRegister);
+                break;
+            }
+            case OP_COMP_INT_IM_8_SIG:
+            {
+                FETCH_FORM_2C;
+                SIG_EXT_C(instructionArgumentRegister);
+                doCompare(true,
+                          getValFromRegsel(LOW_NIBBLE (regselArg1Register)),
+                          instructionArgumentRegister);
+                break;
+            }
+            case OP_COMP_FL_REG:
+            {
+                FETCH_FORM_3;
+                doCompare(false,
+                          getValFromRegsel(LOW_NIBBLE (regselArg1Register)),
+                          getValFromRegsel(HIGH_NIBBLE(regselArg1Register)));
+                break;
+            }
+            case OP_COMP_FL_IM:
+            {
+                FETCH_FORM_2W;
+                doCompare(false,
+                          getValFromRegsel(LOW_NIBBLE (regselArg1Register)),
+                          instructionArgumentRegister);
+                break;
+            }
+            case OP_EVAL_INT_REG:
+            {
+                FETCH_FORM_8;
+                doCompare(true,
+                          getValFromRegsel(HIGH_NIBBLE(regselArg1Register)),
+                          getValFromRegsel(LOW_NIBBLE (regselArg2Register)));
+                transferVarToReg(LOW_NIBBLE(regselArg1Register),
+                                 checkCondition(HIGH_NIBBLE(regselArg2Register)));
+                break;
+            }
+            case OP_EVAL_INT_IM_32:
+            {
+                FETCH_FORM_7W;
+                doCompare(true,
+                          getValFromRegsel(HIGH_NIBBLE(regselArg1Register)),
+                          instructionArgumentRegister);
+                transferVarToReg(LOW_NIBBLE(regselArg1Register),
+                                 checkCondition(LOW_NIBBLE(regselArg2Register)));
+                break;
+            }
+            case OP_EVAL_INT_IM_16:
+            {
+                FETCH_FORM_7H;
+                doCompare(true,
+                          getValFromRegsel(HIGH_NIBBLE(regselArg1Register)),
+                          instructionArgumentRegister);
+                transferVarToReg(LOW_NIBBLE(regselArg1Register),
+                                 checkCondition(LOW_NIBBLE(regselArg2Register)));
+                break;
+            }
+            case OP_EVAL_INT_IM_16_SIG:
+            {
+                FETCH_FORM_7H;
+                SIG_EXT_H(instructionArgumentRegister);
+                doCompare(true,
+                          getValFromRegsel(HIGH_NIBBLE(regselArg1Register)),
+                          instructionArgumentRegister);
+                transferVarToReg(LOW_NIBBLE(regselArg1Register),
+                                 checkCondition(LOW_NIBBLE(regselArg2Register)));
+                break;
+            }
+            case OP_EVAL_INT_IM_8:
+            {
+                FETCH_FORM_7C;
+                doCompare(true,
+                          getValFromRegsel(HIGH_NIBBLE(regselArg1Register)),
+                          instructionArgumentRegister);
+                transferVarToReg(LOW_NIBBLE(regselArg1Register),
+                                 checkCondition(LOW_NIBBLE(regselArg2Register)));
+                break;
+            }
+            case OP_EVAL_INT_IM_8_SIG:
+            {
+                FETCH_FORM_7C;
+                SIG_EXT_C(instructionArgumentRegister);
+                doCompare(true,
+                          getValFromRegsel(HIGH_NIBBLE(regselArg1Register)),
+                          instructionArgumentRegister);
+                transferVarToReg(LOW_NIBBLE(regselArg1Register),
+                                 checkCondition(LOW_NIBBLE(regselArg2Register)));
+                break;
+            }
+            case OP_EVAL_FL_REG:
+            {
+                FETCH_FORM_8;
+                doCompare(false,
+                          getValFromRegsel(HIGH_NIBBLE(regselArg1Register)),
+                          getValFromRegsel(LOW_NIBBLE (regselArg2Register)));
+                transferVarToReg(LOW_NIBBLE(regselArg1Register),
+                                 checkCondition(HIGH_NIBBLE(regselArg2Register)));
+                break;
+            }
+            case OP_EVAL_FL_IM:
+            {
+                FETCH_FORM_7W;
+                doCompare(false,
+                          getValFromRegsel(HIGH_NIBBLE(regselArg1Register)),
+                          instructionArgumentRegister);
+                transferVarToReg(LOW_NIBBLE(regselArg1Register),
+                                 checkCondition(LOW_NIBBLE(regselArg2Register)));
+                break;
+            }
+            case OP_BRNC_REG_ABS:
+            {
+                FETCH_FORM_6;
+                if (checkCondition(HIGH_NIBBLE(regselArg1Register)))
+                {
+                    programCounter = getValFromRegsel(LOW_NIBBLE(regselArg1Register));
+                }
+                break;
+            }
+            case OP_BRNC_REG_PC:
+            {
+                FETCH_FORM_6;
+                if (checkCondition(HIGH_NIBBLE(regselArg1Register)))
+                {
+                    programCounter = getValFromRegsel(
+                                         applyOffset(ADDRESSING_MODE_PC,
+                                                    LOW_NIBBLE(regselArg1Register)));
+                }
+                break;
+            }
+            case OP_BRNC_REG_OA:
+            {
+                FETCH_FORM_6;
+                if (checkCondition(HIGH_NIBBLE(regselArg1Register)))
+                {
+                    programCounter = getValFromRegsel(
+                                         applyOffset(ADDRESSING_MODE_OA,
+                                                    LOW_NIBBLE(regselArg1Register)));
+                }
+                break;
+            }
+            case OP_BRNC_REG_OB:
+            {
+                FETCH_FORM_6;
+                if (checkCondition(HIGH_NIBBLE(regselArg1Register)))
+                {
+                    programCounter = getValFromRegsel(
+                                         applyOffset(ADDRESSING_MODE_OB,
+                                                    LOW_NIBBLE(regselArg1Register)));
+                }
+                break;
+            }
+            case OP_BRNC_REG_OC:
+            {
+                FETCH_FORM_6;
+                if (checkCondition(HIGH_NIBBLE(regselArg1Register)))
+                {
+                    programCounter = getValFromRegsel(
+                                         applyOffset(ADDRESSING_MODE_OC,
+                                                    LOW_NIBBLE(regselArg1Register)));
+                }
+                break;
+            }
+            case OP_BRNC_P_REG_ABS:
+            {
+                FETCH_FORM_6;
+                if (checkCondition(HIGH_NIBBLE(regselArg1Register)))
+                {
+                    protectedPush32(programCounter);
+                    programCounter = getValFromRegsel(LOW_NIBBLE(regselArg1Register));
+                }
+                break;
+            }
+            case OP_BRNC_P_REG_PC:
+            {
+                FETCH_FORM_6;
+                if (checkCondition(HIGH_NIBBLE(regselArg1Register)))
+                {
+                    protectedPush32(programCounter);
+                    programCounter = getValFromRegsel(
+                                         applyOffset(ADDRESSING_MODE_PC,
+                                                    LOW_NIBBLE(regselArg1Register)));
+                }
+                break;
+            }
+            case OP_BRNC_P_REG_OA:
+            {
+                FETCH_FORM_6;
+                if (checkCondition(HIGH_NIBBLE(regselArg1Register)))
+                {
+                    protectedPush32(programCounter);
+                    programCounter = getValFromRegsel(
+                                         applyOffset(ADDRESSING_MODE_OA,
+                                                    LOW_NIBBLE(regselArg1Register)));
+                }
+                break;
+            }
+            case OP_BRNC_P_REG_OB:
+            {
+                FETCH_FORM_6;
+                if (checkCondition(HIGH_NIBBLE(regselArg1Register)))
+                {
+                    protectedPush32(programCounter);
+                    programCounter = getValFromRegsel(
+                                         applyOffset(ADDRESSING_MODE_OB,
+                                                    LOW_NIBBLE(regselArg1Register)));
+                }
+                break;
+            }
+            case OP_BRNC_P_REG_OC:
+            {
+                FETCH_FORM_6;
+                if (checkCondition(HIGH_NIBBLE(regselArg1Register)))
+                {
+                    protectedPush32(programCounter);
+                    programCounter = getValFromRegsel(
+                                         applyOffset(ADDRESSING_MODE_OC,
+                                                    LOW_NIBBLE(regselArg1Register)));
+                }
+                break;
+            }
+            case OP_BRNC_IM_ABS:
+            {
+                FETCH_FORM_5W;
+                if (checkCondition(LOW_NIBBLE(regselArg1Register)))
+                {
+                    programCounter = instructionArgumentRegister;
+                }
+                break;
+            }
+            case OP_BRNC_IM_PC:
+            {
+                FETCH_FORM_5W;
+                if (checkCondition(LOW_NIBBLE(regselArg1Register)))
+                {
+                    programCounter = applyOffset(ADDRESSING_MODE_PC,
+                                                 instructionArgumentRegister);
+                }
+                break;
+            }
+            case OP_BRNC_IM_OA:
+            {
+                FETCH_FORM_5W;
+                if (checkCondition(LOW_NIBBLE(regselArg1Register)))
+                {
+                    programCounter = applyOffset(ADDRESSING_MODE_OA,
+                                                 instructionArgumentRegister);
+                }
+                break;
+            }
+            case OP_BRNC_IM_OB:
+            {
+                FETCH_FORM_5W;
+                if (checkCondition(LOW_NIBBLE(regselArg1Register)))
+                {
+                    programCounter = applyOffset(ADDRESSING_MODE_OB,
+                                                 instructionArgumentRegister);
+                }
+                break;
+            }
+            case OP_BRNC_IM_OC:
+            {
+                FETCH_FORM_5W;
+                if (checkCondition(LOW_NIBBLE(regselArg1Register)))
+                {
+                    programCounter = applyOffset(ADDRESSING_MODE_OC,
+                                                 instructionArgumentRegister);
+                }
+                break;
+            }
+            case OP_BRNC_P_IM_ABS:
+            {
+                FETCH_FORM_5W;
+                if (checkCondition(LOW_NIBBLE(regselArg1Register)))
+                {
+                    protectedPush32(programCounter);
+                    programCounter = instructionArgumentRegister;
+                }
+                break;
+            }
+            case OP_BRNC_P_IM_PC:
+            {
+                FETCH_FORM_5W;
+                if (checkCondition(LOW_NIBBLE(regselArg1Register)))
+                {
+                    protectedPush32(programCounter);
+                    programCounter = applyOffset(ADDRESSING_MODE_PC,
+                                                 instructionArgumentRegister);
+                }
+                break;
+            }
+            case OP_BRNC_P_IM_OA:
+            {
+                FETCH_FORM_5W;
+                if (checkCondition(LOW_NIBBLE(regselArg1Register)))
+                {
+                    protectedPush32(programCounter);
+                    programCounter = applyOffset(ADDRESSING_MODE_OA,
+                                                 instructionArgumentRegister);
+                }
+                break;
+            }
+            case OP_BRNC_P_IM_OB:
+            {
+                FETCH_FORM_5W;
+                if (checkCondition(LOW_NIBBLE(regselArg1Register)))
+                {
+                    protectedPush32(programCounter);
+                    programCounter = applyOffset(ADDRESSING_MODE_OB,
+                                                 instructionArgumentRegister);
+                }
+                break;
+            }
+            case OP_BRNC_P_IM_OC:
+            {
+                FETCH_FORM_5W;
+                if (checkCondition(LOW_NIBBLE(regselArg1Register)))
+                {
+                    protectedPush32(programCounter);
+                    programCounter = applyOffset(ADDRESSING_MODE_OC,
+                                                 instructionArgumentRegister);
+                }
+                break;
+            }
+            case OP_FL_TO_INT:
+            {
+                FETCH_FORM_3;
+                int32_t tmpInt = getValFromRegsel(HIGH_NIBBLE(regselArg1Register));
+
+                float tmpFloat = *((float*)&tmpInt);
+                tmpInt = (int32_t) tmpFloat;
+
+                transferVarToReg(LOW_NIBBLE(regselArg1Register), tmpInt);
+
+                break;
+            }
+            case OP_INT_TO_FL:
+            {
+                FETCH_FORM_3;
+                float tmpFloat = getValFromRegsel(HIGH_NIBBLE(regselArg1Register));
+
+                uint32_t tmpInt = *((uint32_t*) &tmpFloat);
+
+                transferVarToReg(LOW_NIBBLE(regselArg1Register), tmpInt);
+
+                break;
+            }
+            case OP_INT_SIG_TO_FL:
+            {
+                FETCH_FORM_3;
+                uint32_t tmpInt = getValFromRegsel(HIGH_NIBBLE(regselArg1Register));
+                int32_t  tmpSigInt = *((int32_t*)&tmpInt);
+
+                float    tmpFloat = tmpSigInt;
+
+                tmpInt = *((uint32_t*) &tmpFloat);
+
+                transferVarToReg(LOW_NIBBLE(regselArg1Register), tmpInt);
+
+                break;
+            }
+            case OP_PUSH:
+            {
+                FETCH_FORM_2;
+                doStackUtils(STACK_UTIL_PUSH, LOW_NIBBLE(regselArg1Register));
+                break;
+            }
+            case OP_POP:
+            {
+                FETCH_FORM_2;
+                doStackUtils(STACK_UTIL_POP, LOW_NIBBLE(regselArg1Register));
+                break;
+            }
+            case OP_PEEK:
+            {
+                doStackUtils(STACK_UTIL_POP, LOW_NIBBLE(regselArg1Register));
+                break;
+            }
+            case OP_RETURN:
+            {
+                // Fetch for form 1 already done
+                doStackUtils(STACK_UTIL_RETURN, 0);
+                break;
+            }
+            case OP_INTR_SUS:
+            {
+                // Fetch for form 1 already done
+                statusRegister |= STAT_REG_INT_SUS_MASK;
+                break;
+            }
+            case OP_INTR_RES:
+            {
+                // Fetch for form 1 already done
+                statusRegister &= ~(STAT_REG_INT_IN_PROG_MASK |
+                                    STAT_REG_INT_SUS_MASK);
+                break;
+            }
+            case OP_INTR_FIN:
+            {
+                // Fetch for form 1 already done
+                programCounter = interruptReturnAddress;
+                statusRegister &= (~STAT_REG_INT_IN_PROG_MASK);
+                break;
+            }
+            case OP_INTR_TGR_REG:
+            {
+                FETCH_FORM_2;
+                enqueueInterrupt(getValFromRegsel(LOW_NIBBLE(regselArg1Register))
+                                 & INTERRUPT_FULL_MASK);
+                break;
+            }
+            case OP_INTR_TGR_IM_16:
+            {
+                FETCH_FORM_1H;
+                enqueueInterrupt(instructionArgumentRegister & INTERRUPT_FULL_MASK);
+                break;
+            }
+            case OP_INTR_GET_PARAM:
+            {
+                FETCH_FORM_2;
+                transferVarToReg(LOW_NIBBLE(regselArg1Register),
+                                (currentInterrupt & INTERRUPT_ARG_MASK) >> INTERRUPT_ARG_OFFSET);
+                break;
+            }
+            case OP_INTR_GET_RET_AD:
+            {
+                FETCH_FORM_2;
+                transferVarToReg(LOW_NIBBLE(regselArg1Register), interruptReturnAddress);
+                break;
+            }
+            case OP_INTR_SET_RET_AD_REG:
+            {
+                FETCH_FORM_2;
+                interruptReturnAddress = getValFromRegsel(LOW_NIBBLE(regselArg1Register));
+                break;
+            }
+            case OP_INTR_SET_RET_AD_IM:
+            {
+                FETCH_FORM_1W;
+                interruptReturnAddress = instructionArgumentRegister;
+                break;
+            }
+            case OP_GETABS_REG_PC:
+            {
+                FETCH_FORM_3;
+                transferVarToReg(LOW_NIBBLE(regselArg1Register),
+                                 applyOffset(ADDRESSING_MODE_PC,
+                                             getValFromRegsel(HIGH_NIBBLE(regselArg1Register))));
+                break;
+            }
+            case OP_GETABS_IM_PC:
+            {
+                FETCH_FORM_2W;
+                transferVarToReg(LOW_NIBBLE(regselArg1Register),
+                                 applyOffset(ADDRESSING_MODE_PC,
+                                             instructionArgumentRegister));
+                break;
+            }
+            case OP_GETREL_REG_OA:
+            {
+                FETCH_FORM_3;
+                transferVarToReg(LOW_NIBBLE(regselArg1Register),
+                                 applyOffset(ADDRESSING_MODE_PC_M_OA,
+                                             getValFromRegsel(HIGH_NIBBLE(regselArg1Register))));
+                break;
+            }
+            case OP_GETREL_REG_OB:
+            {
+                FETCH_FORM_3;
+                transferVarToReg(LOW_NIBBLE(regselArg1Register),
+                                 applyOffset(ADDRESSING_MODE_PC_M_OB,
+                                             getValFromRegsel(HIGH_NIBBLE(regselArg1Register))));
+                break;
+            }
+            case OP_GETREL_REG_OC:
+            {
+                FETCH_FORM_3;
+                transferVarToReg(LOW_NIBBLE(regselArg1Register),
+                                 applyOffset(ADDRESSING_MODE_PC_M_OC,
+                                             getValFromRegsel(HIGH_NIBBLE(regselArg1Register))));
+                break;
+            }
+            case OP_GETREL_IM_OA:
+            {
+                FETCH_FORM_2W;
+                transferVarToReg(LOW_NIBBLE(regselArg1Register),
+                                 applyOffset(ADDRESSING_MODE_PC_M_OA,
+                                             instructionArgumentRegister));
+                break;
+            }
+            case OP_GETREL_IM_OB:
+            {
+                FETCH_FORM_2W;
+                transferVarToReg(LOW_NIBBLE(regselArg1Register),
+                                 applyOffset(ADDRESSING_MODE_PC_M_OB,
+                                             instructionArgumentRegister));
+                break;
+            }
+            case OP_GETREL_IM_OC:
+            {
+                FETCH_FORM_2W;
+                transferVarToReg(LOW_NIBBLE(regselArg1Register),
+                                 applyOffset(ADDRESSING_MODE_PC_M_OC,
+                                             instructionArgumentRegister));
+                break;
+            }
         }
 
         #ifdef SELF_TEST
@@ -1580,15 +3690,19 @@ static void run()
                                    offsetRegisters,
                                    stackBase,
                                    stackSize,
+                                   stackPointer,
                                    interruptTable,
+                                   flagsRegister,
                                    programCounter,
-                                   instructionRegister,
-                                   instructionAugment,
+                                   opCodeRegister,
+                                   regselArg1Register,
+                                   regselArg2Register,
+                                   instructionArgumentRegister,
+                                   interruptReturnAddress,
+                                   currentInterrupt,
                                    interruptHead,
                                    interruptTail,
-                                   stackPointer,
-                                   flagsRegister,
-                                   currentInterrupt,
+                                   statusRegister,
                                    memory))
         {
             return;
