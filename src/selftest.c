@@ -38,15 +38,19 @@ bool st_checkFrame(uint32_t generalRegisters[8],
                    uint32_t offsetRegisters[3],
                    uint32_t stackBase,
                    uint16_t stackSize,
+                   uint16_t stackPointer,
                    uint32_t interruptTable,
+                   uint8_t  flagsRegister,
                    uint32_t programCounter,
-                   uint32_t instructionRegister,
-                   uint8_t  instructionAugment,
+                   uint8_t  opCodeRegister,
+                   uint8_t  regselArg1Register,
+                   uint8_t  regselArg2Register,
+                   uint32_t instructionArgumentRegister,
+                   uint32_t interruptReturnAddress,
+                   uint16_t currentInterrupt,
                    uint8_t  interruptHead,
                    uint8_t  interruptTail,
-                   uint16_t stackPointer,
-                   uint8_t  flagsRegister,
-                   uint16_t currentInterrupt,
+                   uint8_t  statusRegister,
                    uint8_t *memory)
 {
     char            buffer[2048] = {0};
@@ -175,11 +179,27 @@ bool st_checkFrame(uint32_t generalRegisters[8],
                 rc = false;
             }
         }
+        else if (0 != sscanf(buffer, ST_SP_STRING, &buf16))
+        {
+            if (stackPointer != buf16)
+            {
+                printf("SP check failed in frame %u. Expected: 0x%04hx, got 0x%04hx\n\r", frame, buf16, stackPointer);
+                rc = false;
+            }
+        }
         else if (0 != sscanf(buffer, ST_IL_STRING, &buf32))
         {
             if (interruptTable != buf32)
             {
                 printf("IL check failed in frame %u. Expected: 0x%08x, got 0x%08x\n\r", frame, buf32, interruptTable);
+                rc = false;
+            }
+        }
+        else if (0 != sscanf(buffer, ST_FL_STRING, &buf8))
+        {
+            if (flagsRegister != buf8)
+            {
+                printf("FL check failed in frame %u. Expected: 0b%04hhb, got 0b%04hhb\n\r", frame, buf8, flagsRegister);
                 rc = false;
             }
         }
@@ -191,19 +211,51 @@ bool st_checkFrame(uint32_t generalRegisters[8],
                 rc = false;
             }
         }
-        else if (0 != sscanf(buffer, ST_IR_STRING, &buf32))
+        else if (0 != sscanf(buffer, ST_OP_STRING, &buf8))
         {
-            if (instructionRegister != buf32)
+            if (opCodeRegister != buf8)
             {
-                printf("IR check failed in frame %u. Expected: 0x%08x, got 0x%08x\n\r", frame, buf32, instructionRegister);
+                printf("OP check failed in frame %u. Expected: 0b%04hhx, got 0b%04hhx\n\r", frame, buf8, opCodeRegister);
                 rc = false;
             }
         }
-        else if (0 != sscanf(buffer, ST_IA_STRING, &buf8))
+        else if (0 != sscanf(buffer, ST_R1_STRING, &buf8))
         {
-            if (instructionAugment != buf8)
+            if (regselArg1Register != buf8)
             {
-                printf("IA check failed in frame %u. Expected: 0x%02hhx, got 0x%02hhx\n\r", frame, buf8, instructionAugment);
+                printf("R1 check failed in frame %u. Expected: 0b%04hhx, got 0b%04hhx\n\r", frame, buf8, regselArg1Register);
+                rc = false;
+            }
+        }
+        else if (0 != sscanf(buffer, ST_R2_STRING, &buf8))
+        {
+            if (regselArg2Register != buf8)
+            {
+                printf("R1 check failed in frame %u. Expected: 0b%04hhx, got 0b%04hhx\n\r", frame, buf8, regselArg2Register);
+                rc = false;
+            }
+        }
+        else if (0 != sscanf(buffer, ST_AG_STRING, &buf32))
+        {
+            if (instructionArgumentRegister != buf32)
+            {
+                printf("AG check failed in frame %u. Expected: 0x%08x, got 0x%08x\n\r", frame, buf32, instructionArgumentRegister);
+                rc = false;
+            }
+        }
+        else if (0 != sscanf(buffer, ST_IA_STRING, &buf32))
+        {
+            if (interruptReturnAddress != buf32)
+            {
+                printf("IA check failed in frame %u. Expected: 0x%02x, got 0x%02x\n\r", frame, buf32, interruptReturnAddress);
+                rc = false;
+            }
+        }
+        else if (0 != sscanf(buffer, ST_CI_STRING, &buf16))
+        {
+            if (currentInterrupt != buf16)
+            {
+                printf("CI check failed in frame %u. Expected: 0x%04hx, got 0x%04hx\n\r", frame, buf16, currentInterrupt);
                 rc = false;
             }
         }
@@ -223,27 +275,11 @@ bool st_checkFrame(uint32_t generalRegisters[8],
                 rc = false;
             }
         }
-        else if (0 != sscanf(buffer, ST_SP_STRING, &buf16))
+        else if (0 != sscanf(buffer, ST_ST_STRING, &buf8))
         {
-            if (stackPointer != buf16)
+            if (statusRegister != buf8)
             {
-                printf("SP check failed in frame %u. Expected: 0x%04hx, got 0x%04hx\n\r", frame, buf16, stackPointer);
-                rc = false;
-            }
-        }
-        else if (0 != sscanf(buffer, ST_FL_STRING, &buf8))
-        {
-            if (flagsRegister != buf8)
-            {
-                printf("FL check failed in frame %u. Expected: 0b%04hhb, got 0b%04hhb\n\r", frame, buf8, flagsRegister);
-                rc = false;
-            }
-        }
-        else if (0 != sscanf(buffer, ST_CI_STRING, &buf16))
-        {
-            if (currentInterrupt != buf16)
-            {
-                printf("CI check failed in frame %u. Expected: 0x%04hx, got 0x%04hx\n\r", frame, buf16, currentInterrupt);
+                printf("ST check failed in frame %u. Expected: 0x%02hhx, got 0x%02hhx\n\r", frame, buf8, statusRegister);
                 rc = false;
             }
         }

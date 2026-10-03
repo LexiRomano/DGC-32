@@ -18,8 +18,8 @@ Internal Registers:
 - OP - Op code register - 8bit
 - R1 - Regsel argument register 1 - 8bit
 - R2 - Regsel argument register 2 - 8bit
-- AG - Instrucion argument register - 32bit
-- IR - Interrupt return address - 32bit
+- AG - Instruction argument register - 32bit
+- IA - Interrupt return address - 32bit
 - CI - Current interrupt - 16bit
 - IH - Interrupt head - 8bit
 - IT - Interrupt tail - 8bit
@@ -83,40 +83,40 @@ Form 1:
 ```
 Form 2:
   0xAB -> Op code
-  0x1z -> Single regsel
+  0xz1 -> Single regsel
 ```
 ```
 Form 3:
   0xAB -> Op code
-  0x12 -> Dual regsel
+  0x21 -> Dual regsel
 ```
 ```
 Form 4:
   0xAB -> Op code
-  0x12 -> Dual regsel
-  0x3z -> Single regsel
+  0x21 -> Dual regsel
+  0xz3 -> Single regsel
 ```
 ```
 Form 5:
   0xAB -> Op code
-  0xCz -> Flag condition
+  0xzC -> Flag condition
 ```
 ```
 Form 6:
   0xAB -> Op code
-  0x1C -> Single regsel / Flag condition
+  0xC1 -> Single regsel / Flag condition
 ```
 ```
 Form 7:
   0xAB -> Op code
-  0x12 -> Dual regsel
-  0xCz -> Flag condition
+  0x21 -> Dual regsel
+  0xzC -> Flag condition
 ```
 ```
 Form 8:
   0xAB -> Op code
-  0x12 -> Dual regsel
-  0x3C -> Single regsel / Flag condition
+  0x21 -> Dual regsel
+  0xC3 -> Single regsel / Flag condition
 ```
 
 Form numbers followed by `c`, `h`, and `w` have an 8bit, 16bit, or 32bit argument respectively appended. For example:
@@ -141,9 +141,10 @@ Form 2h:
 
 ### Op codes
 
-#### 0x00: noop
-- Form 1
-- Does nothing
+#### 0x00: debug
+- Form 2
+- Prints the value in the specified register to the terminal
+- For debug emulator only, will result in an invalid instruction interrupt otherwise
 
 #### 0x01: move register
 - Form 3
@@ -1025,18 +1026,17 @@ Form 2h:
 - Offset register C relative addressing mode
 - Push return address to the stack if branch is taken
 
-#### 0xB6: int to bool
-- Form 3
-- If any bits in R2 are set, set R1 to 1
-- Else set R1 to 0
-
-#### 0xB7: float to int
+#### 0xB6: float to int
 - Form 3
 - Convert R2 from a float to an integer and store in R1
 
-#### 0xB8: int to float
+#### 0xB7: int to float
 - Form 3
-- Convert R2 from an integer to a float and store in R1
+- Convert R2 from an unsigned integer to a float and store in R1
+
+#### 0xB8: int sig to float
+- Form 3
+- Convert R2 from a signed integer to a float and store in R1
 
 #### 0xB9: push
 - From 2
@@ -1046,60 +1046,341 @@ Form 2h:
 - Form 2
 - Pop from the stack into the register
 
-#### 0xBB: pushall
-- Form 1
-- Push registers G0:G7 and FL to the stack
-
-#### 0xBC: popall
-- Form 1
-- Pop registers G0:G7 and FL from the stack
-
-#### 0xBD: peek
+#### 0xBB: peek
 - Form 2
 - Peek from the stack into a register
 
-#### 0xBE: return
+#### 0xBC: return
 - Form 1
 - Pop from the stack into the program counter to return from a branch-push
 
-#### 0xBF: susspend interrupts
+#### 0xBD: susspend interrupts
 - Form 1
 - Prevents any non-critical interrupts from being handled
 
-#### 0xC0: resume interrupts
+#### 0xBE: resume interrupts
 - Form 1
 - Resumes allowing non-critical interrupts from being handled
-- If currently handling an interrupt, will stop handling the interrupt without returning to the original execution branch
+- If currently handling an interrupt, will finish handling the interrupt without returning to the original execution branch
 
-#### 0xC1: trigger interrupt register
+#### 0xBF: finish interrupts
+- Form 1
+- Finishes handling the current interrupt and restores PC to the interrupt return address.
+
+#### 0xC0: trigger interrupt register
 - Form 2
 - Triggers an interrupt with the data provided in a register
 
-#### 0xC2: trigger interrupt immediate 16
+#### 0xC1: trigger interrupt immediate 16
 - Form 1h
 - Triggers an interrupt with the data provided in the argument
 
-#### 0xC3: get interrupt parameter
+#### 0xC2: get interrupt parameter
 - Form 2
 - Puts the interrupt parameter in the selected register
 
-#### 0xC4: get return address
+#### 0xC3: get interrupt return address
 - Form 2
 - Puts the interrupt return address in the selected register
 
-#### 0xC5: set return address register
+#### 0xC4: set interrupt return address register
 - Form 2
 - Sets the interrupt return address from the selected register
 
-#### 0xC6: set return address immediate
+#### 0xC5: set interrupt return address immediate
 - Form 1w
 - Sets the interrupt return address with the argument
 
-#### 0xC7: debug
-- Form 2
-- Prints the value in the specified register to the terminal
-- For debug emulator only
+#### 0xC6: get absolute address register PC relative
+- Form 3
+- Calculates an address relative to the PC from the second register and saves it to the first register
 
-#### 0xC8: terminate
-- Form 1
-- Terminates execution
+#### 0xC7: get absolute address immediate PC relative
+- Form 2w
+- Calculates an address relative to the PC from the argument and saves it to the selected register
+
+#### 0xC8: get relative address register PC-OA relative
+- Form 3
+- Calculates an address relative to the PC and OA such that the result is addressable relative to OA
+- Address argument from the second register, result stored in the first
+- Basiaclly R1 = R2 + PC - OA
+
+#### 0xC9: get relative address register PC-OB relative
+- Form 3
+- Calculates an address relative to the PC and OB such that the result is addressable relative to OB
+- Address argument from the second register, result stored in the first
+- Basiaclly R1 = R2 + PC - OB
+
+#### 0xCA: get relative address register PC-OC relative
+- Form 3
+- Calculates an address relative to the PC and OC such that the result is addressable relative to OC
+- Address argument from the second register, result stored in the first
+- Basiaclly R1 = R2 + PC - OC
+
+#### 0xCB: get relative address immediate PC-OA relative
+- Form 2w
+- Calculates an address relative to the PC and OA such that the result is addressable relative to OA
+- Address comes from the argument, result stored in the selected register
+- Basiaclly R1 = Argument + PC - OA
+
+#### 0xCC: get relative address immediate PC-OB relative
+- Form 2w
+- Calculates an address relative to the PC and OB such that the result is addressable relative to OB
+- Address comes from the argument, result stored in the selected register
+- Basiaclly R1 = Argument + PC - OB
+
+#### 0xCD: get relative address immediate PC-OC relative
+- Form 2w
+- Calculates an address relative to the PC and OC such that the result is addressable relative to OC
+- Address comes from the argument, result stored in the selected register
+- Basiaclly R1 = Argument + PC - OC
+
+#### 0xCE: swap 32 register abs
+- Form 3
+- Swaps the word pointed to in memory by the second regsel into the first regsel
+- Absolute addressing mode
+
+#### 0xCF: swap 32 register PC rel
+- Form 3
+- Swaps the word pointed to in memory by the second regsel into the first regsel
+- Program counter relative addressing mode
+
+#### 0xD0: swap 32 register OA rel
+- Form 3
+- Swaps the word pointed to in memory by the second regsel into the first regsel
+- Offset register A relative addressing mode
+
+#### 0xD1: swap 32 register OB rel
+- Form 3
+- Swaps the word pointed to in memory by the second regsel into the first regsel
+- Offset register B relative addressing mode
+
+#### 0xD2: swap 32 register OC rel
+- Form 3
+- Swaps the word pointed to in memory by the second regsel into the first regsel
+- Offset register C relative addressing mode
+
+#### 0xD3: swap 16 register abs
+- Form 3
+- Swaps the short pointed to in memory by the second regsel into the first regsel
+- Absolute addressing mode
+
+#### 0xD4: swap 16 register PC rel
+- Form 3
+- Swaps the short pointed to in memory by the second regsel into the first regsel
+- Program counter relative addressing mode
+
+#### 0xD5: swap 16 register OA rel
+- Form 3
+- Swaps the short pointed to in memory by the second regsel into the first regsel
+- Offset register A relative addressing mode
+
+#### 0xD6: swap 16 register OB rel
+- Form 3
+- Swaps the short pointed to in memory by the second regsel into the first regsel
+- Offset register B relative addressing mode
+
+#### 0xD7: swap 16 register OC rel
+- Form 3
+- Swaps the short pointed to in memory by the second regsel into the first regsel
+- Offset register C relative addressing mode
+
+#### 0xD8: swap 16 sig register abs
+- Form 3
+- Swaps the short pointed to in memory by the second regsel into the first regsel with sign extension
+- Absolute addressing mode
+
+#### 0xD9: swap 16 sig register PC rel
+- Form 3
+- Swaps the short pointed to in memory by the second regsel into the first regsel with sign extension
+- Program counter relative addressing mode
+
+#### 0xDA: swap 16 sig register OA rel
+- Form 3
+- Swaps the short pointed to in memory by the second regsel into the first regsel with sign extension
+- Offset register A relative addressing mode
+
+#### 0xDB: swap 16 sig register OB rel
+- Form 3
+- Swaps the short pointed to in memory by the second regsel into the first regsel with sign extension
+- Offset register B relative addressing mode
+
+#### 0xDC: swap 16 sig register OC rel
+- Form 3
+- Swaps the short pointed to in memory by the second regsel into the first regsel with sign extension
+- Offset register C relative addressing mode
+
+#### 0xDD: swap 8 register abs
+- Form 3
+- Swaps the char pointed to in memory by the second regsel into the first regsel
+- Absolute addressing mode
+
+#### 0xDE: swap 8 register PC rel
+- Form 3
+- Swaps the char pointed to in memory by the second regsel into the first regsel
+- Program counter relative addressing mode
+
+#### 0xDF: swap 8 register OA rel
+- Form 3
+- Swaps the char pointed to in memory by the second regsel into the first regsel
+- Offset register A relative addressing mode
+
+#### 0xE0: swap 8 register OB rel
+- Form 3
+- Swaps the char pointed to in memory by the second regsel into the first regsel
+- Offset register B relative addressing mode
+
+#### 0xE1: swap 8 register OC rel
+- Form 3
+- Swaps the char pointed to in memory by the second regsel into the first regsel
+- Offset register C relative addressing mode
+
+#### 0xE2: swap 8 sig register abs
+- Form 3
+- Swaps the char pointed to in memory by the second regsel into the first regsel with sign extension
+- Absolute addressing mode
+
+#### 0xE3: swap 8 sig register PC rel
+- Form 3
+- Swaps the char pointed to in memory by the second regsel into the first regsel with sign extension
+- Program counter relative addressing mode
+
+#### 0xE4: swap 8 sig register OA rel
+- Form 3
+- Swaps the char pointed to in memory by the second regsel into the first regsel with sign extension
+- Offset register A relative addressing mode
+
+#### 0xE5: swap 8 sig register OB rel
+- Form 3
+- Swaps the char pointed to in memory by the second regsel into the first regsel with sign extension
+- Offset register B relative addressing mode
+
+#### 0xE6: swap 8 sig register OC rel
+- Form 3
+- Swaps the char pointed to in memory by the second regsel into the first regsel with sign extension
+- Offset register C relative addressing mode
+
+#### 0xE7: swap 32 immediate abs
+- Form 2w
+- Swaps the word pointed to in memory by the argument into the regsel
+- Absolute addressing mode
+
+#### 0xE8: swap 32 immediate PC rel
+- Form 2w
+- Swaps the word pointed to in memory by the argument into the regsel
+- Program counter relative addressing mode
+
+#### 0xE9: swap 32 immediate OA rel
+- Form 2w
+- Swaps the word pointed to in memory by the argument into the regsel
+- Offset register A relative addressing mode
+
+#### 0xEA: swap 32 immediate OB rel
+- Form 2w
+- Swaps the word pointed to in memory by the argument into the regsel
+- Offset register B relative addressing mode
+
+#### 0xEB: swap 32 immediate OC rel
+- Form 2w
+- Swaps the word pointed to in memory by the argument into the regsel
+- Offset register C relative addressing mode
+
+#### 0xEC: swap 16 immediate abs
+- Form 2w
+- Swaps the short pointed to in memory by the argument into the regsel
+- Absolute addressing mode
+
+#### 0xED: swap 16 immediate PC rel
+- Form 2w
+- Swaps the short pointed to in memory by the argument into the regsel
+- Program counter relative addressing mode
+
+#### 0xEE: swap 16 immediate OA rel
+- Form 2w
+- Swaps the short pointed to in memory by the argument into the regsel
+- Offset register A relative addressing mode
+
+#### 0xEF: swap 16 immediate OB rel
+- Form 2w
+- Swaps the short pointed to in memory by the argument into the regsel
+- Offset register B relative addressing mode
+
+#### 0xF0: swap 16 immediate OC rel
+- Form 2w
+- Swaps the short pointed to in memory by the argument into the regsel
+- Offset register C relative addressing mode
+
+#### 0xF1: swap 16 sig immediate abs
+- Form 2w
+- Swaps the short pointed to in memory by the argument into the regsel with sign extension
+- Absolute addressing mode
+
+#### 0xF2: swap 16 sig immediate PC rel
+- Form 2w
+- Swaps the short pointed to in memory by the argument into the regsel with sign extension
+- Program counter relative addressing mode
+
+#### 0xF3: swap 16 sig immediate OA rel
+- Form 2w
+- Swaps the short pointed to in memory by the argument into the regsel with sign extension
+- Offset register A relative addressing mode
+
+#### 0xF4: swap 16 sig immediate OB rel
+- Form 2w
+- Swaps the short pointed to in memory by the argument into the regsel with sign extension
+- Offset register B relative addressing mode
+
+#### 0xF5: swap 16 sig immediate OC rel
+- Form 2w
+- Swaps the short pointed to in memory by the argument into the regsel with sign extension
+- Offset register C relative addressing mode
+
+#### 0xF6: swap 8 immediate abs
+- Form 2w
+- Swaps the char pointed to in memory by the argument into the regsel
+- Absolute addressing mode
+
+#### 0xF7: swap 8 immediate PC rel
+- Form 2w
+- Swaps the char pointed to in memory by the argument into the regsel
+- Program counter relative addressing mode
+
+#### 0xF8: swap 8 immediate OA rel
+- Form 2w
+- Swaps the char pointed to in memory by the argument into the regsel
+- Offset register A relative addressing mode
+
+#### 0xF9: swap 8 immediate OB rel
+- Form 2w
+- Swaps the char pointed to in memory by the argument into the regsel
+- Offset register B relative addressing mode
+
+#### 0xFA: swap 8 immediate OC rel
+- Form 2w
+- Swaps the char pointed to in memory by the argument into the regsel
+- Offset register C relative addressing mode
+
+#### 0xFB: swap 8 sig immediate abs
+- Form 2w
+- Swaps the char pointed to in memory by the argument into the regsel with sign extension
+- Absolute addressing mode
+
+#### 0xFC: swap 8 sig immediate PC rel
+- Form 2w
+- Swaps the char pointed to in memory by the argument into the regsel with sign extension
+- Program counter relative addressing mode
+
+#### 0xFD: swap 8 sig immediate OA rel
+- Form 2w
+- Swaps the char pointed to in memory by the argument into the regsel with sign extension
+- Offset register A relative addressing mode
+
+#### 0xFE: swap 8 sig immediate OB rel
+- Form 2w
+- Swaps the char pointed to in memory by the argument into the regsel with sign extension
+- Offset register B relative addressing mode
+
+#### 0xFF: swap 8 sig immediate OC rel
+- Form 2w
+- Swaps the char pointed to in memory by the argument into the regsel with sign extension
+- Offset register C relative addressing mode
