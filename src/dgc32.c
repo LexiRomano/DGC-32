@@ -2267,7 +2267,7 @@ static int cpuThreadFunction(void *arg)
                 transferMemToReg(LOW_NIBBLE(regselArg1Register),
                                  instructionArgumentRegister,
                                  1);
-                doSigExt(LOW_NIBBLE(regselArg1Register), false);
+                doSigExt(LOW_NIBBLE(regselArg1Register), true);
                 SWAP_POST_LOAD(instructionArgumentRegister,
                                1);
                 break;
@@ -2281,7 +2281,7 @@ static int cpuThreadFunction(void *arg)
                                  applyOffset(ADDRESSING_MODE_PC,
                                              instructionArgumentRegister),
                                  1);
-                doSigExt(LOW_NIBBLE(regselArg1Register), false);
+                doSigExt(LOW_NIBBLE(regselArg1Register), true);
                 SWAP_POST_LOAD(applyOffset(ADDRESSING_MODE_PC,
                                            instructionArgumentRegister),
                                1);
@@ -2296,7 +2296,7 @@ static int cpuThreadFunction(void *arg)
                                  applyOffset(ADDRESSING_MODE_OA,
                                              instructionArgumentRegister),
                                  1);
-                doSigExt(LOW_NIBBLE(regselArg1Register), false);
+                doSigExt(LOW_NIBBLE(regselArg1Register), true);
                 SWAP_POST_LOAD(applyOffset(ADDRESSING_MODE_OA,
                                            instructionArgumentRegister),
                                1);
@@ -2311,7 +2311,7 @@ static int cpuThreadFunction(void *arg)
                                  applyOffset(ADDRESSING_MODE_OB,
                                              instructionArgumentRegister),
                                  1);
-                doSigExt(LOW_NIBBLE(regselArg1Register), false);
+                doSigExt(LOW_NIBBLE(regselArg1Register), true);
                 SWAP_POST_LOAD(applyOffset(ADDRESSING_MODE_OB,
                                            instructionArgumentRegister),
                                1);
@@ -2326,7 +2326,7 @@ static int cpuThreadFunction(void *arg)
                                  applyOffset(ADDRESSING_MODE_OC,
                                              instructionArgumentRegister),
                                  1);
-                doSigExt(LOW_NIBBLE(regselArg1Register), false);
+                doSigExt(LOW_NIBBLE(regselArg1Register), true);
                 SWAP_POST_LOAD(applyOffset(ADDRESSING_MODE_OC,
                                            instructionArgumentRegister),
                                1);
