@@ -10,11 +10,6 @@ static handleWriteFP_t         managerHandleWriteFunctions[NUM_DEVICE_MANAGERS] 
 
 static handleTermInFP_t        handleTermInFP                                   = {0};
 
-// Waker thread infrastructure
-static thrd_t *wakerThread                = NULL;
-static bool    wakerTodo[MAX_NUM_DEVICES] = {0};
-
-
 // CPU-owned read/write functions for general use memory
 static memTransFP_t  writeMem         = NULL;
 static memTransFP_t  readMem          = NULL;
@@ -50,6 +45,7 @@ glfwInfo_t *glfwInfo = NULL;
 static bool           powerState               = false;
 static bool           terminalModified         = false;
 static struct termios originalTerminalSettings = {0};
+static bool wakerTodo[MAX_NUM_DEVICES] = {0};
 
 
 static bool isInterruptTypeAllowed(uint8_t deviceId, interruptTypes_e interruptType)
@@ -739,9 +735,10 @@ void mb_writeToDeviceData(uint32_t address, uint8_t numBytes, void *data)
 }
 
 /*******************************************************************************
-* Waker thread to check fo if device managers need to be woken up.
+* The loop for the main thread to occupy, checking for I/O and waking relevant
+* device manager threads.
 *******************************************************************************/
-static int wakerThreadFunction(void *arg)
+void mb_mainThread()
 {
     uint8_t managerId = 0;
     uint8_t inputBuf  = 0;
@@ -792,8 +789,6 @@ static int wakerThreadFunction(void *arg)
 
         thrd_yield();
     }
-
-    return 0;
 }
 
 /*******************************************************************************
@@ -803,6 +798,17 @@ bool mb_powerState()
 {
     return powerState;
 }
+
+#ifdef SELF_TEST
+/*******************************************************************************
+* Interface for the processor to abort an execution. This only happens in
+* selftest mode where the main CPU loop can abort execution.
+*******************************************************************************/
+void mb_abort()
+{
+    powerState = false;
+}
+#endif //SELF_TEST
 
 /*******************************************************************************
 * Initialize the motherboard and all attached device managers.
@@ -886,10 +892,8 @@ bool mb_init(externalFileInfo_t *externalFileInfo, glfwInfo_t *glfw, memTransFP_
         }
     }
 
-    // Launch waker thread
-    powerState  = true;
-    wakerThread = calloc(1, sizeof(thrd_t));
-    thrd_create(wakerThread, wakerThreadFunction, NULL);
+    // We're ready to go!
+    powerState = true;
 
     return true;
 }
