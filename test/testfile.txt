@@ -3,6 +3,187 @@ frame: 1
 PC: 0x2
 
 // Check move immediate 32: G1 <- 0x123456
-//frame: 2
-PC: 0x4
+frame: 2
+PC: 0x8
 G1: 0x12345678
+
+// Check move register: G3 <- G1
+frame: 3
+PC: 0xA
+G1: 0x12345678
+G3: 0x12345678
+
+// Check move register: OB <- G1
+frame: 4
+PC: 0xC
+OB: 0x12345678
+
+// Check move register: SP <- G1
+frame: 5
+PC: 0xE
+SP: 0x5678
+
+// Check move register: OB <- SP
+frame: 6
+PC: 0x10
+OB: 0x00005678
+
+// Check move immediate 16: G3 <- 0xABCD
+frame: 7
+PC: 0x14
+G3: 0x0000ABCD
+
+// Check move immediate 16 sig: G3 <- 0xFFFFABCD
+frame: 8
+PC: 0x18
+G3: 0xFFFFABCD
+
+// Check move immediate 8: G3 <- 0xBB
+frame: 9
+PC: 0x1B
+G3: 0x000000BB
+
+// Check move immediate 8 sig: G3 <- 0xFFFFFFBB
+frame: 10
+PC: 0x1E
+G3: 0xFFFFFFBB
+
+// Check move immediate 32: SP <- 0x12345678
+frame: 11
+PC: 0x24
+SP: 0x5678
+
+// Check move immediate 32: FL <- 0x12345678
+frame: 12
+PC: 0x2A
+FL: 0b01111000
+
+// Setup
+frame: 13
+PC: 0x2D
+G7: 0x00000000
+
+// Check load 32 register abs: G0 <- [0x00000000]
+frame: 14
+PC: 0x2F
+G0: 0x01020001
+
+// Setup
+frame: 15
+PC: 0x32
+G7: 0x0000000A
+
+// Check load 32 register abs: G0 <- [G7]
+frame: 16
+PC: 0x34
+G0: 0x1D011901
+
+// Setup
+frame: 17
+PC: 0x37
+G7: 0xFFFFFFFE
+
+// Check load 32 register PC rel: G0 <- [PC + G7]
+frame: 18
+PC: 0x39
+G0: 0x7008FE07
+
+// Setup
+frame: 19
+PC: 0x3C
+G7: 0x00000002
+
+// Setup
+frame: 20
+PC: 0x3E
+OA: 0x00000002
+
+// Check load 32 register OA rel: G0 <- [OA + G7]
+frame: 21
+PC: 0x40
+G0: 0x12345678
+
+// Setup
+frame: 22
+PC: 0x43
+OB: 0x00000004
+
+// Check load 32 register OB rel: G0 <- [OB + G7]
+frame: 23
+PC: 0x45
+G0: 0x13011234
+
+// Setup
+frame: 24
+PC: 0x48
+OC: 0x00000006
+
+// Check load 32 register OC rel: G0 <- [OC + G7]
+frame: 25
+PC: 0x4A
+G0: 0x19011301
+
+// Check load 16 register abs: G0 <- [G7]
+frame: 26
+PC: 0x4C
+G0: 0x00000102
+
+// Check load 16 sig register abs: G1 <- [G7]
+frame: 27
+PC: 0x4E
+G1: 0x00000102
+
+// Setup
+frame: 28
+PC: 0x51
+G6: 0x00000012
+
+// Check load 16 sig register abs: G0 <- [G6]
+frame: 29
+PC: 0x53
+G0: 0xFFFFABCD
+
+// Check load 8 register abs: G0 <- [G6]
+frame: 30
+PC: 0x55
+G0: 0x000000CD
+
+// Check load 8 sig register abs: G0 <- [G6]
+frame: 31
+PC: 0x57
+G0: 0xFFFFFFCD
+
+// Check load 32 immediate abs: G3 <- [0x00000010]
+frame: 32
+PC: 0x5D
+G3: 0xABCD0303
+
+// Check load 32 immediate PC: G2 <- [PC + 0xFFFFFFFC]
+frame: 33
+PC: 0x63
+G2: 0x00000010
+
+// Check load 32 immediate OB: G1 <- [OB + 0x00000002]
+frame: 34
+PC: 0x69
+G1: 0x13011234
+
+// Check load 16 immediate abs: G0 <- [0x0000005F]
+frame: 35
+PC: 0x6F
+G0: 0x0000FFFC
+
+// Check load 16 sig immediate abs: G5 <- [0x00000061]
+frame: 36
+PC: 0x75
+G5: 0xFFFFFFFF
+
+// Check load 8 immediate abs: G4 <- [0x00000061]
+frame: 37
+PC: 0x7B
+G4: 0x000000FF
+
+// Check load 8 immediate abs: G4 <- [0x00000061]
+frame: 38
+PC: 0x81
+G4: 0xFFFFFFFF
