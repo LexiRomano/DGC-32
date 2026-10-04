@@ -1,3 +1,8 @@
-// Check move register 0 <- 0
+// Check move register: G0 <- G0
 frame: 1
 PC: 0x2
+
+// Check move immediate 32: G1 <- 0x123456
+//frame: 2
+PC: 0x4
+G1: 0x12345678

@@ -1564,8 +1564,9 @@ do                                                           \
     }                                                                  \
 } while (0)
 
-static void run()
+static int cpuThreadFunction(void *arg)
 {
+    (void)arg;
     uint32_t tmpA, tmpB = 0;
     #ifdef SELF_TEST
     st_defineStartTime();
@@ -3705,12 +3706,26 @@ static void run()
                                    statusRegister,
                                    memory))
         {
-            return;
+            mb_abort();
+            return 0;
         }
 
         st_endInterruptTime();
         #endif // SELF_TEST
     }
+
+    return 0;
+}
+
+static void run()
+{
+    thrd_t cpuThread = {0};
+    thrd_create(&cpuThread, cpuThreadFunction, NULL);
+
+    // This can only exit from the power state turning
+    // off, the cpu thread will then exit
+    mb_mainThread();
+    thrd_join(cpuThread, NULL);
 }
 
 static void teardown()

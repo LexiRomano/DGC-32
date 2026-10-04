@@ -33,6 +33,11 @@ void mb_readFromDeviceData(uint32_t address, uint8_t numBytes);
 bool mb_canWriteToDeviceData (uint32_t address, uint8_t numBytes);
 void mb_writeToDeviceData    (uint32_t address, uint8_t numBytes, void *data);
 bool mb_powerState();
+#ifdef SELF_TEST
+void mb_abort();
+#endif //SELF_TEST
 void mb_teardown();
+
+void mb_mainThread();
 
 #endif //__MOTHERBOARD_H__
