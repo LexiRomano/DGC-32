@@ -335,8 +335,7 @@
 #define MEMBOUND_CAN_WRITE(address, size) ((address >= MEMBOUND_WRITE_START) && (((uint64_t) address) + size - 1 <= MEMBOUND_WRITE_END))
 
 // Misc
-#define STACK_OVERFLOW_THRESHOLD 34
-#define STACK_PUSHALL_SIZE 33
+#define STACK_OVERFLOW_THRESHOLD 8
 
 typedef enum
 {
