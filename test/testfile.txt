@@ -287,3 +287,77 @@ MEM: 0x00008002 0x78
 MEM: 0x00008003 0x78
 MEM: 0x00008004 0x78
 MEM: 0x00008005 0x00
+
+// Setup
+frame: 51
+PC: 0xB9
+G1: 0x89ABCDEF
+G2: 0x12345678
+
+// Check add int register: G0 <- G1 + G2
+frame: 52
+PC: 0xBC
+G0: 0x9BE02467
+FL: 0b00000100
+
+// Check add int immediate 32: G1 <- G0 + 0xF1111111
+frame: 53
+PC: 0xC2
+G1: 0x8CF13578
+FL: 0b00000110
+
+// Check add int immediate 32: G3 <- G1 + 0x80000000
+frame: 54
+PC: 0xC8
+G3: 0x0cf13578
+FL: 0b00000011
+
+// Check add int immediate 32: G3 <- G3 + 0xF30ECA88
+frame: 55
+PC: 0xCE
+G3: 0x00000000
+FL: 0b00001010
+
+// Check add int immediate 16: G3 <- G3 + 0x8123
+frame: 56
+PC: 0xD2
+G3: 0x00008123
+FL: 0b00000000
+
+// Check add int immediate 16 sig: G3 <- G3 + 0x8123
+frame: 57
+PC: 0xD6
+G3: 0x00000246
+FL: 0b00000010
+
+// Check add int immediate 16 sig: G3 <- G3 + 0x1890
+frame: 58
+PC: 0xDA
+G3: 0x00001AD6
+FL: 0b00000000
+
+// Setup
+frame: 59
+PC: 0xE0
+// 23.5
+G0: 0x41BC0000
+
+// Setup
+frame: 60
+PC: 0xE6
+// -12.125
+G1: 0xC1420000
+
+// Check add float register: G2 <- G0 + G1
+frame: 61
+PC: 0xE9
+// 11.375
+G2: 0x41360000
+FL: 0b00000000
+
+// Check add float immediate: G3 <- G2 + 99.9375
+frame: 62
+PC: 0xEF
+// 111.3125
+G3: 0x42DEA000
+FL: 0b00000000

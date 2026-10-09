@@ -2663,7 +2663,7 @@ static int cpuThreadFunction(void *arg)
             }
             case OP_ADD_FL_IM:
             {
-                FETCH_FORM_4;
+                FETCH_FORM_3W;
                 doMath(MATH_OPERATION_ADD_FL,
                        LOW_NIBBLE (regselArg1Register),
                        getValFromRegsel(HIGH_NIBBLE(regselArg1Register)),
