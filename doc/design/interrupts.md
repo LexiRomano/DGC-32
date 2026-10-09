@@ -53,10 +53,10 @@ The parameter is defined by the spec of the motherboard.
 
 This interrupt is triggered when something in the stack experiences one of the following critical events:
 
-| Parameter Value | Meaning                               |
-| --------------- | ------------------------------------- |
-| 0x00            | empty pop                             |
-| 0x01            | critical space: <=34 bytes remaining* |
+| Parameter Value | Meaning                              |
+| --------------- | ------------------------------------ |
+| 0x00            | empty pop                            |
+| 0x01            | critical space: <=8 bytes remaining* |
 
 \* The critical space interrupt is only triggered once on the transition into the critical space state.
 
