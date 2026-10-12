@@ -104,7 +104,7 @@ Form 5:
 ```
 Form 6:
   0xAB -> Op code
-  0xC1 -> Single regsel / Flag condition
+  0xC1 -> Flag condition / Single regsel
 ```
 ```
 Form 7:
@@ -116,7 +116,7 @@ Form 7:
 Form 8:
   0xAB -> Op code
   0x21 -> Dual regsel
-  0xC3 -> Single regsel / Flag condition
+  0xC3 -> Flag condition / Single regsel
 ```
 
 Form numbers followed by `c`, `h`, and `w` have an 8bit, 16bit, or 32bit argument respectively appended. For example:
