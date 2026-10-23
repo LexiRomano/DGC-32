@@ -31,7 +31,7 @@ static uint32_t pcIncrementedBy = 0;
 do                                     \
 {                                       \
     memcpy(&instructionArgumentRegister, \
-           &memory[programCounter+1],     \
+           &memory[programCounter],       \
            sizeof(uint32_t));              \
     programCounter+=4;                      \
     pcIncrementedBy+=4;                      \
@@ -42,7 +42,7 @@ do                                 \
 {                                   \
     uint16_t tmp16;                  \
     memcpy(&tmp16,                    \
-           &memory[programCounter+1],  \
+           &memory[programCounter],    \
            sizeof(tmp16));              \
     instructionArgumentRegister = tmp16; \
     programCounter+=2;                    \
