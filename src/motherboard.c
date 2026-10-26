@@ -20,10 +20,12 @@ static mb_device_t *firstDeviceInMem                   = NULL;
 static mb_device_t *deviceMappingData[MAX_NUM_DEVICES] = {0};
 static mtx_t        deviceRegistryMutex                = {0};
 
+int mb_initDeviceManager(void *arg);
+
 // Bindings for device managers. Add as required
 thrd_start_t managerInitFunctions[NUM_DEVICE_MANAGERS] = 
 {
-    ddm_initDeviceManager,
+    mb_initDeviceManager,
     pr_initDeviceManager,
     st_initDeviceManager,
     tm_initDeviceManager,
@@ -31,7 +33,7 @@ thrd_start_t managerInitFunctions[NUM_DEVICE_MANAGERS] =
 };
 deviceTypes_e managerDeviceType[NUM_DEVICE_MANAGERS] = 
 {
-    dt_none,
+    dt_motherboard,
     dt_peripheral,
     dt_storage,
     dt_timer,
@@ -47,6 +49,170 @@ static bool           terminalModified         = false;
 static struct termios originalTerminalSettings = {0};
 static bool wakerTodo[MAX_NUM_DEVICES] = {0};
 
+// Motherboard device
+static threadArg_t mbDeviceThreadData = {0};
+static uint8_t     mbDeviceId         = 0;
+static thrd_t      mbTimerThread      = {0};
+static cnd_t       mbTimerThreadCnd   = {0};
+static mtx_t       mbTimerThreadMtx   = {0};
+
+static bool mbDeviceCanWriteMap[] = 
+{
+    false, // 0
+    true,  // 1
+    false, false, // 2-3
+    false, // 4
+    false, // 5
+    false, // 6
+    false, // 7
+    false, // 8
+    false, false, false, false // 9-C
+};
+
+static void mb_handleWrite(uint8_t deviceId, uint16_t deviceDataAddress, uint8_t numBytes, void *data)
+{
+    // Shutdown
+    if (deviceId == mbDeviceId        &&
+        1        == deviceDataAddress &&
+        1        == numBytes)
+    {
+        powerState = false;
+    }
+}
+
+static int mb_timeThread(void *arg)
+{
+    struct timespec startTime = {0};
+    struct timespec wakeTime  = {0};
+    time_t          rawTime   = {0};
+    struct tm      *timeInfo  = NULL;
+    uint8_t         tmp8      = 0;
+    uint16_t        tmp16     = 0;
+    uint32_t        tmp32     = 0;
+
+    mtx_lock(&mbTimerThreadMtx);
+
+    timespec_get(&startTime, TIME_UTC);
+    timespec_get(&wakeTime,  TIME_UTC);
+
+    do
+    {
+        time(&rawTime);
+        timeInfo = localtime(&rawTime);
+
+        if (NULL != timeInfo)
+        {
+            // Year (2-3)
+            tmp16 = timeInfo->tm_year + 1900;
+            (void) dmi_writeDeviceData(mbDeviceId, 2, 2, &tmp16);
+
+            // Month (4)
+            tmp8 = timeInfo->tm_mon + 1;
+            (void) dmi_writeDeviceData(mbDeviceId, 4, 1, &tmp8);
+
+            // Day (5)
+            tmp8 = timeInfo->tm_mday;
+            (void) dmi_writeDeviceData(mbDeviceId, 5, 1, &tmp8);
+
+            // Hour (6)
+            tmp8 = timeInfo->tm_hour;
+            (void) dmi_writeDeviceData(mbDeviceId, 6, 1, &tmp8);
+
+            // Minute (7)
+            tmp8 = timeInfo->tm_min;
+            (void) dmi_writeDeviceData(mbDeviceId, 7, 1, &tmp8);
+
+            // Second (8)
+            tmp8 = timeInfo->tm_sec;
+            (void) dmi_writeDeviceData(mbDeviceId, 8, 1, &tmp8);
+
+            // Uptime (9-C)
+            tmp32 = wakeTime.tv_sec - startTime.tv_sec;
+            (void) dmi_writeDeviceData(mbDeviceId, 9, 4, &tmp32);
+
+        }
+
+        timespec_get(&wakeTime, TIME_UTC);
+
+        wakeTime.tv_sec++;
+
+        if (wakeTime.tv_nsec > 900000000)
+        {
+            // Less than 100ms to the next wall clock second, wait for the 
+            // next one instead
+            wakeTime.tv_sec++;
+        }
+
+        wakeTime.tv_nsec = 0;
+
+        cnd_timedwait(&mbTimerThreadCnd, &mbTimerThreadMtx, &wakeTime);
+    }
+    while (powerState);
+
+    mtx_unlock(&mbTimerThreadMtx);
+
+    return 0;
+}
+
+int mb_initDeviceManager(void *arg)
+{
+    memcpy(&mbDeviceThreadData, arg, sizeof(threadArg_t));
+    free(arg);
+
+    mtx_lock(mbDeviceThreadData.mutex);
+
+
+    // Bind motherboard device
+    mbDeviceId = dmi_requestNewDevice(mbDeviceThreadData.managerId,
+                                      0x0D,
+                                      mbDeviceCanWriteMap);
+    if (NEW_DEVICE_REQUEST_FAILED == mbDeviceId ||
+        false == dmi_writeDeviceData(mbDeviceId,
+                                     0,
+                                     1,
+                                     (uint8_t[]) {0x01}))
+    {
+        mbDeviceThreadData.semaphore->wakeReason = dts_kill;
+        cnd_signal(mbDeviceThreadData.wakeCondition);
+        mtx_unlock(mbDeviceThreadData.mutex);
+        return -1;
+    }
+
+    // Bind the write handler
+    dmi_bindHandleWrite(mbDeviceThreadData.managerId, mb_handleWrite);
+    cnd_signal(mbDeviceThreadData.wakeCondition);
+
+    mtx_init(&mbTimerThreadMtx, mtx_plain);
+    cnd_init(&mbTimerThreadCnd);
+
+    thrd_create(&mbTimerThread, mb_timeThread, NULL);
+
+    while (true)
+    {
+        cnd_wait(mbDeviceThreadData.wakeCondition, mbDeviceThreadData.mutex);
+
+        switch (mbDeviceThreadData.semaphore->wakeReason)
+        {
+            case dts_kill:
+            {
+                // Power state is off, this will die. Make sure it
+                // does it in a timely manner.
+                cnd_signal(&mbTimerThreadCnd);
+                thrd_join(mbTimerThread, NULL);
+                mtx_destroy(&mbTimerThreadMtx);
+                cnd_destroy(&mbTimerThreadCnd);
+                return 0;
+            }
+            case dts_handleReadWrite:
+            case dts_continue:
+            {
+                break;
+            }
+        }
+
+        mbDeviceThreadData.semaphore->wakeReason = dts_continue;
+    }
+}
 
 static bool isInterruptTypeAllowed(uint8_t deviceId, interruptTypes_e interruptType)
 {
