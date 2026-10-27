@@ -973,7 +973,8 @@ static void doMath(mathOperation_e operation, uint8_t destRegsel, uint32_t a, ui
             // Fall through \/
         case MATH_OPERATION_ADD_INT:
             result = a + b;
-            carry  = result < a;
+            carry  = result < a ||
+                     b == 0;
             overflow = carry ^
                        (0 !=(((a & 0x7FFFFFFF) + (b & 0x7FFFFFFF)) & 0x80000000));
             break;
@@ -1145,9 +1146,9 @@ static void doMath(mathOperation_e operation, uint8_t destRegsel, uint32_t a, ui
     transferVarToReg(destRegsel, result);
     if (wasFloat)
     {
+        // Ignore carry, doesn't really make sense for floats
         flagsRegister = ((rFloat == 0 ? FLAG_Z : 0) +
                          (rFloat <  0 ? FLAG_N : 0) +
-                         (carry       ? FLAG_C : 0) +
                          (overflow    ? FLAG_V : 0));
     }
     else
@@ -1173,7 +1174,8 @@ static void doCompare(bool isInt, uint32_t a, uint32_t b)
     {
         b = (~b) +1;
         result = a + b;
-        carry  = result < a;
+        carry  = result < a ||
+                 b == 0;
         overflow = carry ^
                    (0 !=(((a & 0x7FFFFFFF) + (b & 0x7FFFFFFF)) & 0x80000000));
 
@@ -1198,9 +1200,9 @@ static void doCompare(bool isInt, uint32_t a, uint32_t b)
             overflow = aFloat < 0;
         }
 
+        // Ignore carry, doesn't really make sense for floats
         flagsRegister = ((rFloat == 0 ? FLAG_Z : 0) +
                          (rFloat <  0 ? FLAG_N : 0) +
-                         (carry       ? FLAG_C : 0) +
                          (overflow    ? FLAG_V : 0));
     }
 }
