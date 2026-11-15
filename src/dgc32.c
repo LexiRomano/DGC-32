@@ -839,7 +839,7 @@ static void doSigExt(uint8_t regsel, bool toChar)
         {
             if (toChar)
             {
-                SIG_EXT_C(*regMap4[regsel]);
+                SIG_EXT_C(*regMap2[regsel]);
             }
             break;
         }
